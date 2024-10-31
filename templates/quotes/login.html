@@ -1,0 +1,65 @@
+{% extends 'core/base.html' %}
+
+{% block title %}Log in{% endblock %}
+{% load static %}
+
+{% block content %}
+{% if user.is_authenticated %}
+    <script>
+        window.location.href = "/";  <!-- Redirects to the homepage or a preferred page -->
+    </script>
+{% else %}
+    <style>
+        .logo-container {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+
+        .site-logo {
+            max-width: 100%;
+            height: auto;
+            margin-top: 20px;
+            display: inline-block;
+        }
+    </style>
+<div class="logo-container">
+    <img src="https://cpe-bucket-aom.s3.ap-southeast-2.amazonaws.com/img/logo.png" alt="Logo" class="site-logo" />
+</div>
+<div class="w-1/2 my-6 mx-auto p-6 bg-white border bg-gray-100 shadow-md rounded-xl">
+    <h1 class="mb-6 font-bold text-3xl">Log in</h1>
+
+    <form method="post" action=".">
+        {% csrf_token %}
+
+        <div class="mb-3">
+            <label class="inline-block font-bold mb-2">Username</label><br>
+            <div class="border border-gray-300 shadow-md rounded">
+            {{ form.username }}
+        </div>
+        </div>
+
+        <div class="mb-3">
+            <label class="inline-block font-bold mb-2">Password</label><br>
+            <div class="border border-gray-300 shadow-md rounded">
+            {{ form.password }}
+        </div>
+        </div>
+
+        {% if form.errors or form.non_field_errors %}
+            <div class="mb-3 p-6 bg-red-100 rounded-xl">
+                {% for field in form %}
+                    {{ field.errors }}
+                {% endfor %}
+
+                {{ form.non_field_errors }}
+            </div>
+        {% endif %}
+
+        <button class="py-4 px-8 text-lg bg-[#4D7C0F] hover:bg-green-700 rounded-xl text-white">Submit</button>
+    </form>
+
+
+</div>
+{% endif %}
+
+{% endblock %}
