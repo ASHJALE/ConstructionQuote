@@ -1,20 +1,136 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
-    <title>Register</title>
-</head>
-<body>
-    <div class="container">
-        <h2 class="mt-5">Register</h2>
-        <form method="POST">
-            {% csrf_token %}
-            {{ form.as_p }}
-            <button type="submit" class="btn btn-primary">Register</button>
-        </form>
-        <p class="mt-3">Already have an account? <a href="{% url 'login' %}">Login here</a>.</p>
+{% extends 'core/base.html' %}
+
+{% block title %}Register{% endblock %}
+
+{% block content %}
+<style>
+    body {
+        background: linear-gradient(135deg, #6e8efb, #a777e3);
+        min-height: 100vh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+    .container {
+        background: rgba(255, 255, 255, 0.9);
+        border-radius: 20px;
+        box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.37);
+        backdrop-filter: blur(4px);
+        border: 1px solid rgba(255, 255, 255, 0.18);
+        padding: 40px;
+        width: 90%;
+        max-width: 500px;
+    }
+    h2 {
+        color: #4a4a4a;
+        text-align: center;
+        margin-bottom: 30px;
+    }
+    .form-group {
+        margin-bottom: 20px;
+    }
+    .form-group label {
+        display: block;
+        margin-bottom: 5px;
+        color: #4a4a4a;
+        font-weight: bold;
+    }
+    .form-group input {
+        width: 100%;
+        padding: 10px;
+        border: 1px solid #ddd;
+        border-radius: 5px;
+        font-size: 16px;
+    }
+    .submit-btn {
+        background: linear-gradient(45deg, #ff9a9e, #fad0c4);
+        color: white;
+        border: none;
+        padding: 12px 20px;
+        border-radius: 5px;
+        cursor: pointer;
+        font-size: 18px;
+        width: 100%;
+        transition: all 0.3s ease;
+    }
+    .submit-btn:hover {
+        background: linear-gradient(45deg, #fad0c4, #ff9a9e);
+        transform: translateY(-2px);
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+    }
+    .alert {
+        padding: 10px;
+        border-radius: 5px;
+        margin-bottom: 20px;
+        text-align: center;
+    }
+    .alert-success {
+        background-color: #d4edda;
+        border-color: #c3e6cb;
+        color: #155724;
+    }
+    .alert-danger {
+        background-color: #f8d7da;
+        border-color: #f5c6cb;
+        color: #721c24;
+    }
+    .text-danger {
+        color: #dc3545;
+        font-size: 0.875em;
+        display: block;
+        margin-top: 5px;
+    }
+    .login-link {
+        text-align: center;
+        margin-top: 20px;
+    }
+    .login-link a {
+        color: #6e8efb;
+        text-decoration: none;
+        font-weight: bold;
+    }
+    .login-link a:hover {
+        text-decoration: underline;
+    }
+    .gmail-note {
+        font-size: 0.9em;
+        color: #666;
+        margin-top: 5px;
+    }
+</style>
+
+<div class="container">
+    <h2>Join Us Today!</h2>
+    <form method="POST">
+        {% csrf_token %}
+        
+        {% if messages %}
+            {% for message in messages %}
+                <div class="alert alert-{{ message.tags }}">
+                    {{ message }}
+                </div>
+            {% endfor %}
+        {% endif %}
+
+        {% for field in form %}
+            <div class="form-group">
+                <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+                {{ field }}
+                {% if field.name == 'email' %}
+                    <p class="gmail-note">Please use a Gmail address.</p>
+                {% endif %}
+                {% if field.errors %}
+                    {% for error in field.errors %}
+                        <small class="text-danger">{{ error }}</small>
+                    {% endfor %}
+                {% endif %}
+            </div>
+        {% endfor %}
+
+        <button type="submit" class="submit-btn">Register</button>
+    </form>
+    <div class="login-link">
+        <p>Already have an account? <a href="{% url 'login' %}">Login here</a></p>
     </div>
-</body>
-</html>
+</div>
+{% endblock %}

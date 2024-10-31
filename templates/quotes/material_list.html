@@ -1,13 +1,9 @@
-{% extends 'base.html' %}
+{% extends 'core/base.html' %}
 
 {% block content %}
     <h1>Materials</h1>
     <a href="{% url 'material_create' %}" class="btn btn-primary">Create a new material</a>
     <ul class="list-group">
-        {% for material in materials %}
-            <li class="list-group-item">{{ material.name }} ({{ material.description }})</li>
-        {% empty %}
-            <li class="list-group-item">No materials available.</li>
-        {% endfor %}
+        
     </ul>
 {% endblock %}

@@ -49,6 +49,8 @@ MIDDLEWARE = [
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
+MESSAGE_STORAGE = 'django.contrib.messages.storage.session.SessionStorage'
+
 
 ROOT_URLCONF = 'ConstructionQuote.urls'
 
@@ -68,6 +70,9 @@ TEMPLATES = [
         },
     },
 ]
+
+LOGIN_URL = '/quotes/login/'
+LOGIN_REDIRECT_URL = '/quotes/projects/'
 
 WSGI_APPLICATION = 'ConstructionQuote.wsgi.application'
 
