@@ -1,8 +1,15 @@
 from django.db import models
 from django.contrib.auth.models import User
 
-
+# quotes/models.py
 class Project(models.Model):
+    STATUS_CHOICES = (
+        ('pending', 'Pending'),
+        ('approved', 'Approved'),
+        ('declined', 'Declined'),
+        ('completed', 'Completed'),
+    )
+
     PROJECT_TYPES = (
         ('framing', 'Framing'),
         ('window_and_door_installation', 'Window and Door Installation'),
@@ -25,17 +32,24 @@ class Project(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE)
     title = models.CharField(max_length=200)
     description = models.TextField(blank=True)
+    location = models.CharField(max_length=200, blank=False)
+    status = models.CharField(
+        max_length=20,
+        choices=STATUS_CHOICES,
+        default='pending'
+    )
     project_type = models.CharField(max_length=100, choices=PROJECT_TYPES)
     area_size = models.DecimalField(max_digits=10, decimal_places=2, help_text="Area size in square meters")
     project_element = models.CharField(max_length=100, choices=PROJECT_ELEMENTS)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
+
     class Meta:
         ordering = ['-created_at']
 
     def __str__(self):
-        return self.title
+        return f"{self.title} - {self.get_status_display()}"
 
 class Pricing(models.Model):
     project = models.ForeignKey(Project, on_delete=models.CASCADE)
@@ -50,6 +64,7 @@ class ProjectElement(models.Model):
     element_name = models.CharField(max_length=100)
     quantity = models.IntegerField()
     unit_price = models.DecimalField(max_digits=10, decimal_places=2)
+
 
     def __str__(self):
         return f'Element: {self.element_name} for {self.project.title}'
@@ -66,6 +81,9 @@ class Material(models.Model):
     name = models.CharField(max_length=100)
     description = models.TextField(blank=True)
     unit_price = models.DecimalField(max_digits=10, decimal_places=2)
+    quantity = models.IntegerField(default=0)
+    markup_percentage = models.DecimalField(max_digits=5, decimal_places=2, default=0)
+    unit = models.CharField(max_length=20, default='')
 
     def __str__(self):
         return self.name

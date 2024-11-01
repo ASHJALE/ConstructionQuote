@@ -19,6 +19,7 @@ def home(request):
 
 @login_required
 def project_list(request):
+
     projects = Project.objects.filter(user=request.user).order_by('-created_at')  # Add ordering if desired
     context = {
         'projects': projects
@@ -35,24 +36,30 @@ def logout_view(request):
 @login_required
 def project_create(request):
     if request.method == 'POST':
-        title = request.POST['title']
-        description = request.POST.get('description', '')
-        project_type = request.POST.get('project_type')
-        area_size = request.POST.get('area_size')
-        project_element = request.POST.get('project_element')
+        try:
+            # Get form data
+            project = Project(
+                user=request.user,
+                title=request.POST['title'],
+                description=request.POST.get('description', ''),
+                location=request.POST.get('location', ''),  # Add this line
+                project_type=request.POST['project_type'],
+                area_size=request.POST['area_size'],
+                project_element=request.POST['project_element']
+            )
+            project.save()
+            messages.success(request, 'Project created successfully!')
+            return redirect('project_list')
+        except Exception as e:
+            messages.error(request, f'Error creating project: {str(e)}')
+            print(f"Form data: {request.POST}")  # Debug print
 
-        project = Project(
-            user=request.user,
-            title=title,
-            description=description,
-            project_type=project_type,
-            area_size=area_size,
-            project_element=project_element
-        )
-        project.save()
-        messages.success(request, 'Project created successfully!')
-        return redirect('project_list')
-    return render(request, 'quotes/project_form.html')
+    # Get choices for the template
+    context = {
+        'project_types': Project.PROJECT_TYPES,
+        'project_elements': Project.PROJECT_ELEMENTS,
+    }
+    return render(request, 'quotes/project_form.html', context)
 
 
 def login_view(request):
@@ -131,23 +138,22 @@ def register(request):
 def project_create(request):
     if request.method == 'POST':
         try:
-            # Get form data
             project = Project(
                 user=request.user,
                 title=request.POST['title'],
                 description=request.POST.get('description', ''),
+                location=request.POST['location'],  # Add location
+                status='pending',  # Set initial status
                 project_type=request.POST['project_type'],
                 area_size=request.POST['area_size'],
-                project_element=request.POST['project_element']  # Make sure this matches your form field name
+                project_element=request.POST['project_element']
             )
             project.save()
             messages.success(request, 'Project created successfully!')
             return redirect('project_list')
         except Exception as e:
             messages.error(request, f'Error creating project: {str(e)}')
-            print(f"Form data: {request.POST}")  # Debug print
 
-    # Get choices for the template
     context = {
         'project_types': Project.PROJECT_TYPES,
         'project_elements': Project.PROJECT_ELEMENTS,
@@ -163,6 +169,7 @@ def edit_project(request, project_id):
         # Get form data
         title = request.POST.get('title')
         description = request.POST.get('description')
+        location = request.POST.get('location')  # Add this line
         project_type = request.POST.get('project_type')
         area_size = request.POST.get('area_size')
         project_element = request.POST.get('project_elements')
@@ -170,6 +177,7 @@ def edit_project(request, project_id):
         # Update project
         project.title = title
         project.description = description
+        project.location = location  # Add this line
         project.project_type = project_type
         project.area_size = area_size
         project.project_element = project_element
@@ -274,3 +282,53 @@ def project_edit(request, project_id):
 
 def is_admin(user):
     return user.is_superuser
+
+
+@login_required
+@login_required
+def project_detail(request, project_id):
+    project = get_object_or_404(Project, id=project_id)
+
+    # Assuming you have a related name defined in your Project model
+    project_elements = project.projectelement_set.prefetch_related(
+        'materials')  # Adjust this line based on your actual related name
+
+    # Calculate totals for each element
+    elements_data = []
+    total_project_cost = 0
+
+    for element in project_elements:
+        element_materials = element.materials.all()  # Ensure materials is a valid related name
+        element_total = 0
+        materials_data = []
+
+        for material in element_materials:
+            material_total = material.quantity * material.unit_price
+            markup_amount = material_total * (material.markup_percentage / 100)
+            total_with_markup = material_total + markup_amount
+
+            materials_data.append({
+                'name': material.name,
+                'quantity': material.quantity,
+                'unit': material.unit,
+                'price_per_unit': material.unit_price,
+                'total_cost': material_total,
+                'markup_percentage': material.markup_percentage,
+                'total_with_markup': total_with_markup
+            })
+            element_total += total_with_markup
+
+        elements_data.append({
+            'element': element,
+            'materials': materials_data,
+            'total_cost': element_total
+        })
+        total_project_cost += element_total
+
+    context = {
+        'project': project,
+        'elements_data': elements_data,
+        'total_project_cost': total_project_cost
+    }
+
+    return render(request, 'quotes/project_detail.html', context)

@@ -1,0 +1,139 @@
+{% extends 'core/base.html' %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="card">
+        <div class="card-header bg-primary text-white">
+            <h2 class="mb-0">{{ project.title }}</h2>
+        </div>
+        <div class="card-body">
+            <div class="row mb-4">
+                <div class="col-md-6">
+                    <h4>Project Details</h4>
+                    <table class="table table-bordered">
+                        <tr>
+                            <th>Description</th>
+                            <td>{{ project.description }}</td>
+                        </tr>
+                        <tr>
+                            <th>Location</th>
+                            <td>{{ project.location }}</td>
+                        </tr>
+                        <tr><tr>
+                            <th>Area Size</th>
+                            <td>{{ project.area_size }} sq.m</td>
+                        </tr>
+                        <tr>
+                            <th>Project Type</th>
+                            <td>{{ project.get_project_type_display }}</td>
+                        </tr>
+                        <tr>
+                            <th>Created Date</th>
+                            <td>{{ project.created_at|date:"F d, Y H:i" }}</td>
+                        </tr>
+                        <tr>
+                            <th>Last Updated</th>
+                            <td>{{ project.updated_at|date:"F d, Y H:i" }}</td>
+                        </tr>
+                    </table>
+                </div>
+                <div class="col-md-6">
+                    <h4>Project Summary</h4>
+                    <div class="card bg-light">
+                        <div class="card-body">
+                            <h5>Total Project Cost</h5>
+                            <h2 class="text-primary">₱{{ total_project_cost|floatformat:2 }}</h2>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Project Elements and Materials Section -->
+            <h4>Project Elements and Materials</h4>
+            {% for element_data in elements_data %}
+            <div class="card mb-4">
+                <div class="card-header bg-secondary text-white">
+                    <h5 class="mb-0">{{ element_data.element.element_name }}</h5>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-striped">
+                            <thead>
+                                <tr>
+                                    <th>Material</th>
+                                    <th>Quantity</th>
+                                    <th>Unit</th>
+                                    <th>Price per Unit</th>
+                                    <th>Total Cost</th>
+                                    <th>Markup %</th>
+                                    <th>Final Cost</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for material in element_data.materials %}
+                                <tr>
+                                    <td>{{ material.name }}</td>
+                                    <td>{{ material.quantity }}</td>
+                                    <td>{{ material.unit }}</td>
+                                    <td>₱{{ material.price_per_unit|floatformat:2 }}</td>
+                                    <td>₱{{ material.total_cost|floatformat:2 }}</td>
+                                    <td>{{ material.markup_percentage }}%</td>
+                                    <td>₱{{ material.total_with_markup|floatformat:2 }}</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                            <tfoot>
+                                <tr class="table-info">
+                                    <td colspan="6"><strong>Element Total</strong></td>
+                                    <td><strong>₱{{ element_data.total_cost|floatformat:2 }}</strong></td>
+                                </tr>
+                            </tfoot>
+                        </table>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+
+    <!-- Action Buttons -->
+    <div class="mt-4 mb-4">
+        <a href="{% url 'edit_project' project.id %}" class="btn btn-primary">
+            <i class="fas fa-edit"></i> Edit Project
+        </a>
+        <a href="{% url 'project_list' %}" class="btn btn-secondary">
+            <i class="fas fa-arrow-left"></i> Back to Projects
+        </a>
+        <button onclick="window.print()" class="btn btn-info">
+            <i class="fas fa-print"></i> Print Details
+        </button>
+    </div>
+</div>
+
+<style>
+    @media print {
+        .btn, .navbar {
+            display: none;
+        }
+        .card {
+            border: none;
+        }
+        .card-header {
+            background-color: #f8f9fa !important;
+            color: #000 !important;
+        }
+    }
+    
+    .table th {
+        background-color: #f8f9fa;
+    }
+    
+    .card {
+        box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+    }
+    
+    .table-responsive {
+        overflow-x: auto;
+    }
+</style>
+{% endblock %}
