@@ -5,8 +5,15 @@
     <div class="card">
         <div class="card-header bg-primary text-white">
             <h2 class="mb-0">{{ project.title }}</h2>
+            <span class="badge {% if project.status == 'pending' %}bg-warning
+                             {% elif project.status == 'quoted' %}bg-info
+                             {% elif project.status == 'approved' %}bg-success
+                             {% elif project.status == 'declined' %}bg-danger{% endif %}">
+                {{ project.get_status_display }}
+            </span>
         </div>
         <div class="card-body">
+            <!-- Project Details Section -->
             <div class="row mb-4">
                 <div class="col-md-6">
                     <h4>Project Details</h4>
@@ -19,7 +26,7 @@
                             <th>Location</th>
                             <td>{{ project.location }}</td>
                         </tr>
-                        <tr><tr>
+                        <tr>
                             <th>Area Size</th>
                             <td>{{ project.area_size }} sq.m</td>
                         </tr>
@@ -28,32 +35,46 @@
                             <td>{{ project.get_project_type_display }}</td>
                         </tr>
                         <tr>
-                            <th>Created Date</th>
-                            <td>{{ project.created_at|date:"F d, Y H:i" }}</td>
-                        </tr>
-                        <tr>
-                            <th>Last Updated</th>
-                            <td>{{ project.updated_at|date:"F d, Y H:i" }}</td>
+                            <th>Status</th>
+                            <td>{{ project.get_status_display }}</td>
                         </tr>
                     </table>
                 </div>
+                
+                {% if project.admin_approved %}
                 <div class="col-md-6">
-                    <h4>Project Summary</h4>
                     <div class="card bg-light">
                         <div class="card-body">
                             <h5>Total Project Cost</h5>
                             <h2 class="text-primary">₱{{ total_project_cost|floatformat:2 }}</h2>
+                            {% if project.status == 'quoted' and not project.customer_approved %}
+                                <form method="post" action="{% url 'customer_approve_project' project.id %}">
+                                    {% csrf_token %}
+                                    <button type="submit" class="btn btn-success mt-3">
+                                        <i class="fas fa-check"></i> Approve Quotation
+                                    </button>
+                                </form>
+                            {% endif %}
                         </div>
                     </div>
                 </div>
+                {% else %}
+                <div class="col-md-6">
+                    <div class="alert alert-info">
+                        <i class="fas fa-info-circle"></i> Quotation pending admin review.
+                        The pricing details will be available once approved.
+                    </div>
+                </div>
+                {% endif %}
             </div>
 
-            <!-- Project Elements and Materials Section -->
-            <h4>Project Elements and Materials</h4>
-            {% for element_data in elements_data %}
+            <!-- Materials Breakdown Section -->
+            {% if project.admin_approved %}
+            <h4>Materials Breakdown</h4>
+            {% for element in elements_data %}
             <div class="card mb-4">
                 <div class="card-header bg-secondary text-white">
-                    <h5 class="mb-0">{{ element_data.element.element_name }}</h5>
+                    <h5 class="mb-0">{{ element.element_name }}</h5>
                 </div>
                 <div class="card-body">
                     <div class="table-responsive">
@@ -64,19 +85,19 @@
                                     <th>Quantity</th>
                                     <th>Unit</th>
                                     <th>Price per Unit</th>
-                                    <th>Total Cost</th>
+                                    <th>Base Cost</th>
                                     <th>Markup %</th>
                                     <th>Final Cost</th>
                                 </tr>
                             </thead>
                             <tbody>
-                                {% for material in element_data.materials %}
+                                {% for material in element.materials %}
                                 <tr>
                                     <td>{{ material.name }}</td>
                                     <td>{{ material.quantity }}</td>
                                     <td>{{ material.unit }}</td>
-                                    <td>₱{{ material.price_per_unit|floatformat:2 }}</td>
-                                    <td>₱{{ material.total_cost|floatformat:2 }}</td>
+                                    <td>₱{{ material.unit_price|floatformat:2 }}</td>
+                                    <td>₱{{ material.base_cost|floatformat:2 }}</td>
                                     <td>{{ material.markup_percentage }}%</td>
                                     <td>₱{{ material.total_with_markup|floatformat:2 }}</td>
                                 </tr>
@@ -85,7 +106,7 @@
                             <tfoot>
                                 <tr class="table-info">
                                     <td colspan="6"><strong>Element Total</strong></td>
-                                    <td><strong>₱{{ element_data.total_cost|floatformat:2 }}</strong></td>
+                                    <td><strong>₱{{ element.element_total|floatformat:2 }}</strong></td>
                                 </tr>
                             </tfoot>
                         </table>
@@ -93,20 +114,33 @@
                 </div>
             </div>
             {% endfor %}
+            {% endif %}
         </div>
     </div>
 
     <!-- Action Buttons -->
     <div class="mt-4 mb-4">
+        {% if user.is_staff or project.status == 'pending' %}
         <a href="{% url 'edit_project' project.id %}" class="btn btn-primary">
             <i class="fas fa-edit"></i> Edit Project
         </a>
+        {% endif %}
+        
+        {% if user.is_staff and project.status == 'pending' %}
+        <a href="{% url 'admin_approve_project' project.id %}" class="btn btn-success">
+            <i class="fas fa-check"></i> Approve Project
+        </a>
+        {% endif %}
+        
         <a href="{% url 'project_list' %}" class="btn btn-secondary">
             <i class="fas fa-arrow-left"></i> Back to Projects
         </a>
+        
+        {% if project.admin_approved %}
         <button onclick="window.print()" class="btn btn-info">
             <i class="fas fa-print"></i> Print Details
         </button>
+        {% endif %}
     </div>
 </div>
 
@@ -123,17 +157,24 @@
             color: #000 !important;
         }
     }
-    
+
     .table th {
         background-color: #f8f9fa;
     }
-    
+
     .card {
         box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+        margin-bottom: 1.5rem;
     }
-    
+
     .table-responsive {
         overflow-x: auto;
+    }
+
+    .badge {
+        font-size: 1rem;
+        padding: 0.5rem 1rem;
+        margin-left: 1rem;
     }
 </style>
 {% endblock %}

@@ -11,7 +11,7 @@ urlpatterns = [
     path('register/', views.register, name='register'),
     path('admin-dashboard/', views.admin_dashboard, name='admin_dashboard'),
     path('admin-dashboard/delete-user/<int:user_id>/', views.delete_user, name='delete_user'),
-
+    path('element/<int:element_id>/materials/', views.manage_element_materials, name='manage_element_materials'),
 
 
     # Projects
@@ -19,12 +19,25 @@ urlpatterns = [
     path('projects/create/', views.project_create, name='project_create'),
     path('projects/edit/<int:project_id>/', views.edit_project, name='edit_project'),
     path('projects/delete/<int:project_id>/', views.project_delete, name='delete_project'),
-    path('projects/<int:project_id>/edit/', views.project_edit, name='project_edit'),
+    path('projects/<int:project_id>/edit/', views.project_list, name='project_edit'),
+    path('projects/<int:project_id>/edit/', views.edit_project, name='edit_project'),
     path('projects/<int:project_id>/delete/', views.project_delete, name='project_delete'),
     path('projects/<int:project_id>/detail/', views.project_detail, name='project_detail'),
+
 
     # Materials
     path('materials/', views.material_list, name='material_list'),
     path('materials/create/', views.material_create, name='material_create'),
     path('materials/delete/<int:material_id>/', views.material_delete, name='material_delete'),
+    path('materials/<int:material_id>/edit/', views.material_edit, name='material_edit'),
+
+
+    path('admin/dashboard/', views.admin_dashboard, name='admin_dashboard'),
+    path('admin/pending-projects/', views.admin_pending_projects, name='admin_pending_projects'),
+    path('admin/declined-projects/', views.admin_declined_projects, name='admin_declined_projects'),
+    path('admin/completed-projects/', views.admin_completed_projects, name='admin_completed_projects'),
+    path('admin/user-management/', views.admin_user_management, name='admin_user_management'),
+    path('admin/update-project-status/<int:project_id>/', views.update_project_status, name='update_project_status'),
+    path('admin/approve-projects/', views.admin_approved_projects, name='admin_approved_projects'),
+
 ]

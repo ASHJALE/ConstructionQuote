@@ -1,0 +1,52 @@
+<!-- templates/quotes/manage_element_materials.html -->
+{% extends 'core/base.html' %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="card">
+        <div class="card-header bg-primary text-white">
+            <h2 class="mb-0">Manage Materials for {{ project_element.element_name }}</h2>
+        </div>
+        <div class="card-body">
+            <form method="post">
+                {% csrf_token %}
+                <div class="form-group">
+                    {{ form.as_p }}
+                </div>
+                <button type="submit" class="btn btn-primary">Add Material</button>
+            </form>
+
+            <h4 class="mt-4">Current Materials</h4>
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th>Material</th>
+                        <th>Quantity</th>
+                        <th>Unit</th>
+                        <th>Price per Unit</th>
+                        <th>Markup %</th>
+                        <th>Total Cost</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for element_material in existing_materials %}
+                    <tr>
+                        <td>{{ element_material.material.name }}</td>
+                        <td>{{ element_material.quantity }}</td>
+                        <td>{{ element_material.material.unit }}</td>
+                        <td>₱{{ element_material.material.unit_price }}</td>
+                        <td>{{ element_material.markup_percentage }}%</td>
+                        <td>₱{{ element_material.get_total_with_markup }}</td>
+                        <td>
+                            <a href="{% url 'delete_element_material' element_material.id %}"
+                               class="btn btn-danger btn-sm">Remove</a>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -2,7 +2,7 @@ from django import forms
 from django.contrib.auth.forms import UserCreationForm
 from django.contrib.auth.models import User
 
-from quotes.models import Project
+from quotes.models import Project, Material
 
 
 class CustomUserCreationForm(UserCreationForm):
@@ -58,3 +58,16 @@ class ProjectForm(forms.ModelForm):
         super(ProjectForm, self).__init__(*args, **kwargs)
         for field in self.fields:
             self.fields[field].widget.attrs.update({'class': 'form-control'})
+
+class MaterialForm(forms.ModelForm):
+    class Meta:
+        model = Material
+        fields = ['name', 'description', 'unit_price', 'quantity', 'markup_percentage', 'unit']
+        widgets = {
+            'name': forms.TextInput(attrs={'class': 'form-control'}),
+            'description': forms.Textarea(attrs={'class': 'form-control', 'rows': 3}),
+            'unit_price': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.01'}),
+            'quantity': forms.NumberInput(attrs={'class': 'form-control'}),
+            'markup_percentage': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.01'}),
+            'unit': forms.TextInput(attrs={'class': 'form-control'}),
+        }

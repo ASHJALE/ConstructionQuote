@@ -1,0 +1,287 @@
+{% extends 'core/base.html' %}
+{% load static %}
+
+{% block content %}
+<div class="container mt-4">
+    <h2>Update Project: {{ project.title }}</h2>
+    <form method="post" id="projectForm">
+        {% csrf_token %}
+        <div class="row">
+            <div class="col-md-6">
+                <h3>Project Details</h3>
+                {{ form.as_p }}
+            </div>
+            <div class="col-md-6">
+                <h3>Project Elements</h3>
+                {{ element_formset.management_form }}
+                <div id="element-formset">
+                    {% for element_form in element_formset %}
+                        <div class="element-form">
+                            {{ element_form.as_p }}
+                            <button type="button" class="btn btn-danger remove-element">Remove Element</button>
+                        </div>
+                    {% endfor %}
+                </div>
+                <button type="button" class="btn btn-secondary" id="add-element">Add Element</button>
+            </div>
+        </div>
+
+        <h3>Materials</h3>
+        <div class="form-group">
+            <label for="global-markup">Global Markup %:</label>
+            <input type="number" id="global-markup" step="0.01" min="0">
+            <button type="button" class="btn btn-primary" id="apply-global-markup">Apply Global Markup</button>
+        </div>
+        {{ material_formset.management_form }}
+        <div id="material-formset">
+            {% for material_form in material_formset %}
+                <div class="material-form">
+                    {{ material_form.as_p }}
+                    <button type="button" class="btn btn-danger remove-material">Remove Material</button>
+                </div>
+            {% endfor %}
+        </div>
+        <button type="button" class="btn btn-secondary" id="add-material">Add Material</button>
+
+        <button type="submit" class="btn btn-primary mt-3">Update Project</button>
+    </form>
+</div>
+
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script>
+function formatCurrency(amount) {
+    return parseFloat(amount).toFixed(2).replace(/\d(?=(\d{3})+\.)/g, '$&,');
+}
+
+function updateMaterialCost(element) {
+    const materialForm = $(element).closest('.material-form');
+    const quantity = parseFloat(materialForm.find('.quantity').val()) || 0;
+    const unitPrice = parseFloat(materialForm.find('.unit-price').val()) || 0;
+    const markupPercentage = parseFloat(materialForm.find('.markup-percentage').val()) || 0;
+
+    const baseCost = quantity * unitPrice;
+    const markupAmount = baseCost * (markupPercentage / 100);
+    const totalCost = baseCost + markupAmount;
+
+    materialForm.find('.material-total').val('₱' + formatCurrency(totalCost));
+    updateProjectTotals();
+}
+
+function updateProjectTotals() {
+    let totalBaseCost = 0;
+    let totalMarkupAmount = 0;
+
+    $('.material-form').each(function() {
+        const quantity = parseFloat($(this).find('.quantity').val()) || 0;
+        const unitPrice = parseFloat($(this).find('.unit-price').val()) || 0;
+        const markupPercentage = parseFloat($(this).find('.markup-percentage').val()) || 0;
+
+        const baseCost = quantity * unitPrice;
+        const markupAmount = baseCost * (markupPercentage / 100);
+
+        totalBaseCost += baseCost;
+        totalMarkupAmount += markupAmount;
+    });
+
+    const totalCost = totalBaseCost + totalMarkupAmount;
+
+    $('#base-cost').text(formatCurrency(totalBaseCost));
+    $('#markup-amount').text(formatCurrency(totalMarkupAmount));
+    $('#total-cost').text(formatCurrency(totalCost));
+}
+
+$(document).ready(function() {
+    // Initialize all material costs and project totals
+    $('.material-form').each(function() {
+        updateMaterialCost($(this).find('.quantity'));
+    });
+
+    // Handle adding new material
+    $('#add-material').click(function() {
+        var form_idx = $('#id_materials-TOTAL_FORMS').val();
+        var newMaterial = $('#material-formset .material-form:first').clone();
+        newMaterial.find(':input').val('').attr('value', '');
+        newMaterial.find(':input').each(function() {
+            var name = $(this).attr('name').replace('-0-', '-' + form_idx + '-');
+            var id = 'id_' + name;
+            $(this).attr({'name': name, 'id': id});
+        });
+        $('#material-formset').append(newMaterial);
+        $('#id_materials-TOTAL_FORMS').val(parseInt(form_idx) + 1);
+        updateProjectTotals();
+    });
+
+    // Handle removing material
+    $(document).on('click', '.remove-material', function() {
+        if ($('.material-form').length > 1) {
+            $(this).closest('.material-form').remove();
+            var form_idx = $('#id_materials-TOTAL_FORMS').val();
+            $('#id_materials-TOTAL_FORMS').val(parseInt(form_idx) - 1);
+            updateMaterialIndexes();
+            updateProjectTotals();
+        } else {
+            alert('You must have at least one material.');
+        }
+    });
+
+    // Handle global markup changes
+    $('#apply-global-markup').click(function() {
+        const globalMarkup = parseFloat($('#global-markup').val()) || 0;
+        $('.markup-percentage').val(globalMarkup);
+        $('.material-form').each(function() {
+            updateMaterialCost($(this).find('.quantity'));
+        });
+    });
+
+    // Real-time updates for quantity, unit price, and markup changes
+    $(document).on('input', '.quantity, .unit-price, .markup-percentage', function() {
+        updateMaterialCost(this);
+    });
+
+    function updateMaterialIndexes() {
+        $('.material-form').each(function(index) {
+            $(this).find(':input').each(function() {
+                var name = $(this).attr('name').replace(/-\d+-/, '-' + index + '-');
+                var id = 'id_' + name;
+                $(this).attr({'name': name, 'id': id});
+            });
+        });
+    }
+
+    // Form submission handling
+    $('#projectForm').submit(function(e) {
+        e.preventDefault();
+        
+        // Validate form data
+        let isValid = true;
+        $('.material-form').each(function() {
+            const name = $(this).find('.material-name').val();
+            const quantity = $(this).find('.quantity').val();
+            const unitPrice = $(this).find('.unit-price').val();
+            
+            if (!name || !quantity || !unitPrice) {
+                isValid = false;
+                return false;
+            }
+        });
+
+        if (!isValid) {
+            alert('Please fill in all required fields for materials.');
+            return;
+        }
+
+        // Submit form via AJAX
+        $.ajax({
+            url: "{% url 'update_project_ajax' project.id %}",
+            type: 'POST',
+            data: $(this).serialize(),
+            success: function(response) {
+                if (response.status === 'success') {
+                    alert('Project updated successfully!');
+                    window.location.reload();
+                } else {
+                    alert('Error updating project: ' + response.message);
+                }
+            },
+            error: function() {
+                alert('An error occurred while updating the project.');
+            }
+        });
+    });
+});
+</script>
+<script>
+    $(document).ready(function() {
+        function updateElementForms() {
+            $('.element-form').each(function(index) {
+                $(this).find(':input').each(function() {
+                    var name = $(this).attr('name').replace('-' + (index-1) + '-', '-' + index + '-');
+                    var id = 'id_' + name;
+                    $(this).attr({'name': name, 'id': id});
+                });
+            });
+        }
+
+        function updateMaterialForms() {
+            $('.material-form').each(function(index) {
+                $(this).find(':input').each(function() {
+                    var name = $(this).attr('name').replace('-' + (index-1) + '-', '-' + index + '-');
+                    var id = 'id_' + name;
+                    $(this).attr({'name': name, 'id': id});
+                });
+            });
+        }
+
+        $('#add-element').click(function() {
+            var form_idx = $('#id_elements-TOTAL_FORMS').val();
+            $('#element-formset').append($('#element-formset .element-form:first').clone());
+            $('#element-formset .element-form:last').find(':input').val('');
+            $('#id_elements-TOTAL_FORMS').val(parseInt(form_idx) + 1);
+            updateElementForms();
+        });
+
+        $('#add-material').click(function() {
+            var form_idx = $('#id_materials-TOTAL_FORMS').val();
+            $('#material-formset').append($('#material-formset .material-form:first').clone());
+            $('#material-formset .material-form:last').find(':input').val('');
+            $('#id_materials-TOTAL_FORMS').val(parseInt(form_idx) + 1);
+            updateMaterialForms();
+        });
+
+        $(document).on('click', '.remove-element', function() {
+            $(this).closest('.element-form').remove();
+            var form_idx = $('#id_elements-TOTAL_FORMS').val();
+            $('#id_elements-TOTAL_FORMS').val(parseInt(form_idx) - 1);
+            updateElementForms();
+        });
+
+        $(document).on('click', '.remove-material', function() {
+            $(this).closest('.material-form').remove();
+            var form_idx = $('#id_materials-TOTAL _FORMS').val();
+            $('#id_materials-TOTAL_FORMS').val(parseInt(form_idx) - 1);
+            updateMaterialForms();
+        });
+
+        $('#projectForm').submit(function(e) {
+            e.preventDefault();
+            
+            // Validate form data
+            let isValid = true;
+            $('.material-form').each(function() {
+                const name = $(this).find('.material-name').val();
+                const quantity = $(this).find('.quantity').val();
+                const unitPrice = $(this).find('.unit-price').val();
+                
+                if (!name || !quantity || !unitPrice) {
+                    isValid = false;
+                    return false;
+                }
+            });
+        
+            if (!isValid) {
+                alert('Please fill in all required fields for materials.');
+                return;
+            }
+        
+            // Submit form via AJAX
+            $.ajax({
+                url: "{% url 'update_project_ajax' project.id %}",
+                type: 'POST',
+                data: $(this).serialize(),
+                success: function(response) {
+                    if (response.status === 'success') {
+                        alert('Project updated successfully!');
+                        window.location.reload();
+                    } else {
+                        alert('Error updating project. Please check the form and try again.');
+                        console.log(response.errors);
+                    }
+                },
+                error: function() {
+                    alert('An error occurred while updating the project.');
+                }
+            });
+        });
+    });
+</script>
+{% endblock %}

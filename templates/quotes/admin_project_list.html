@@ -1,0 +1,38 @@
+{% extends 'core/base.html' %}
+
+{% block content %}
+<div class="container mt-4">
+    <h2>{{ title }}</h2>
+    <table class="table">
+        <thead>
+            <tr>
+                <th>Title</th>
+                <th>User</th>
+                <th>Created At</th>
+                <th>Status</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for project in projects %}
+            <tr>
+                <td>{{ project.title }}</td>
+                <td>{{ project.user.username }}</td>
+                <td>{{ project.created_at|date:"Y-m-d H:i" }}</td>
+                <td>{{ project.get_status_display }}</td>
+                <td>
+                    <a href="{% url 'project_detail' project.id %}" class="btn btn-sm btn-info">View</a>
+                    {% if project.status == 'pending' %}
+                    <a href="{% url 'admin_approve_project' project.id %}" class="btn btn-sm btn-success">Approve</a>
+                    {% endif %}
+                </td>
+            </tr>
+            {% empty %}
+            <tr>
+                <td colspan="5">No projects found.</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

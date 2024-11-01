@@ -1,17 +1,17 @@
-from django.core.paginator import Paginator
+
 from django.contrib.auth import authenticate, login
 from django.contrib.auth.forms import AuthenticationForm
+from django.http import JsonResponse
 from django.views.decorators.http import require_http_methods
-from django.contrib.admin.views.decorators import staff_member_required
-from .models import Project, Material, Pricing
+from .admin import ElementMaterialForm
+from .models import Project, Material, Pricing, ProjectElement, ElementMaterial
 from .forms import CustomUserCreationForm, ProjectForm
 from django.contrib.auth import logout
+from django.contrib.auth.decorators import login_required, user_passes_test
+from django.contrib.admin.views.decorators import staff_member_required
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib import messages
-from django.contrib.auth.decorators import login_required, user_passes_test
-from django.contrib.auth.models import User
-from .models import Project
-
+from .models import Project, User
 
 def home(request):
     return render(request, 'quotes/home.html')
@@ -89,22 +89,21 @@ def login_view(request):
 
 @login_required
 def material_list(request):
-    materials = Material.objects.all()
+    materials = Material.objects.all().order_by('name')
     return render(request, 'quotes/material_list.html', {'materials': materials})
 
 
 @login_required
 def material_create(request):
     if request.method == 'POST':
-        name = request.POST['name']
-        description = request.POST.get('description', '')
-        unit_price = request.POST['unit_price']
-        material = Material(name=name, description=description, unit_price=unit_price)
-        material.save()
-        messages.success(request, 'Material created successfully!')
-        return redirect('material_list')
-    return render(request, 'quotes/material_create.html')
-
+        form = MaterialForm(request.POST)
+        if form.is_valid():
+            form.save()
+            messages.success(request, 'Material created successfully!')
+            return redirect('material_list')
+    else:
+        form = MaterialForm()
+    return render(request, 'quotes/material_form.html', {'form': form, 'action': 'Create'})
 
 @login_required
 def material_delete(request, material_id):
@@ -188,6 +187,18 @@ def edit_project(request, project_id):
 
     return render(request, 'quotes/project_edit.html', {'project': project})
 
+@user_passes_test(lambda u: u.is_staff)
+def material_edit(request, material_id):
+    material = get_object_or_404(Material, id=material_id)
+    if request.method == 'POST':
+        form = MaterialForm(request.POST, instance=material)
+        if form.is_valid():
+            form.save()
+            messages.success(request, 'Material updated successfully!')
+            return redirect('material_list')
+    else:
+        form = MaterialForm(instance=material)
+    return render(request, 'quotes/material_form.html', {'form': form, 'action': 'Edit'})
 
 @login_required
 def request_quote(request):
@@ -209,25 +220,76 @@ def request_quote(request):
 
 @staff_member_required
 def admin_dashboard(request):
-    projects_list = Project.objects.all().order_by('-created_at')
-    users_list = User.objects.all()
-
-    # Pagination for projects
-    project_paginator = Paginator(projects_list, 10)  # Show 10 projects per page
-    project_page = request.GET.get('project_page')
-    projects = project_paginator.get_page(project_page)
-
-    # Pagination for users
-    user_paginator = Paginator(users_list, 10)  # Show 10 users per page
-    user_page = request.GET.get('user_page')
-    users = user_paginator.get_page(user_page)
+    pending_count = Project.objects.filter(status='pending').count()
+    approved_count = Project.objects.filter(status='approved').count()
+    declined_count = Project.objects.filter(status='declined').count()
+    completed_count = Project.objects.filter(status='completed').count()
 
     context = {
-        'projects': projects,
-        'users': users,
+        'pending_count': pending_count,
+        'approved_count': approved_count,
+        'declined_count': declined_count,
+        'completed_count': completed_count,
     }
     return render(request, 'quotes/admin_dashboard.html', context)
 
+@staff_member_required
+def admin_pending_projects(request):
+    projects = Project.objects.filter(status='pending').order_by('-created_at')
+    context = {
+        'projects': projects,
+        'page_title': 'Pending Projects',
+    }
+    return render(request, 'quotes/admin_dashboard.html', context)
+
+@staff_member_required
+def admin_approved_projects(request):
+    projects = Project.objects.filter(status='approved').order_by('-created_at')
+    context = {
+        'projects': projects,
+        'page_title': 'Approved Projects',
+    }
+    return render(request, 'quotes/admin_dashboard.html', context)
+
+@staff_member_required
+def admin_declined_projects(request):
+    projects = Project.objects.filter(status='declined').order_by('-created_at')
+    context = {
+        'projects': projects,
+        'page_title': 'Declined Projects',
+    }
+    return render(request, 'quotes/admin_dashboard.html', context)
+
+@staff_member_required
+def admin_completed_projects(request):
+    projects = Project.objects.filter(status='completed').order_by('-created_at')
+    context = {
+        'projects': projects,
+        'page_title': 'Completed Projects',
+    }
+    return render(request, 'quotes/admin_dashboard.html', context)
+
+@staff_member_required
+def admin_user_management(request):
+    users = User.objects.all().order_by('-date_joined')
+    context = {
+        'users': users,
+        'page_title': 'User Management',
+    }
+    return render(request, 'quotes/admin_user_management.html', context)
+
+@staff_member_required
+def update_project_status(request, project_id):
+    if request.method == 'POST':
+        project = get_object_or_404(Project, id=project_id)
+        new_status = request.POST.get('status')
+        if new_status in dict(Project.STATUS_CHOICES):
+            project.status = new_status
+            project.save()
+            messages.success(request, f'Project status updated to {project.get_status_display()}')
+        else:
+            messages.error(request, 'Invalid status')
+    return redirect(request.META.get('HTTP_REFERER', 'admin_dashboard'))
 
 def delete_user(request, user_id):
     user_to_delete = get_object_or_404(User, id=user_id)
@@ -285,43 +347,40 @@ def is_admin(user):
 
 
 @login_required
-@login_required
 def project_detail(request, project_id):
     project = get_object_or_404(Project, id=project_id)
 
-    # Assuming you have a related name defined in your Project model
-    project_elements = project.projectelement_set.prefetch_related(
-        'materials')  # Adjust this line based on your actual related name
+    # Get all project elements and their materials
+    project_elements = ProjectElement.objects.filter(project=project).prefetch_related('materials')
 
-    # Calculate totals for each element
     elements_data = []
     total_project_cost = 0
 
     for element in project_elements:
-        element_materials = element.materials.all()  # Ensure materials is a valid related name
-        element_total = 0
         materials_data = []
+        element_total = 0
 
-        for material in element_materials:
-            material_total = material.quantity * material.unit_price
-            markup_amount = material_total * (material.markup_percentage / 100)
-            total_with_markup = material_total + markup_amount
+        for material in element.materials.all():
+            # Calculate material costs
+            material_base_cost = material.quantity * material.unit_price
+            markup_amount = material_base_cost * (material.markup_percentage / 100)
+            total_with_markup = material_base_cost + markup_amount
 
             materials_data.append({
                 'name': material.name,
                 'quantity': material.quantity,
                 'unit': material.unit,
-                'price_per_unit': material.unit_price,
-                'total_cost': material_total,
+                'unit_price': material.unit_price,
+                'base_cost': material_base_cost,
                 'markup_percentage': material.markup_percentage,
                 'total_with_markup': total_with_markup
             })
             element_total += total_with_markup
 
         elements_data.append({
-            'element': element,
+            'element_name': element.element_name,
             'materials': materials_data,
-            'total_cost': element_total
+            'element_total': element_total
         })
         total_project_cost += element_total
 
@@ -332,3 +391,155 @@ def project_detail(request, project_id):
     }
 
     return render(request, 'quotes/project_detail.html', context)
+
+
+@login_required
+def manage_element_materials(request, element_id):
+    project_element = get_object_or_404(ProjectElement, id=element_id)
+
+    if request.method == 'POST':
+        form = ElementMaterialForm(request.POST)
+        if form.is_valid():
+            element_material = form.save(commit=False)
+            element_material.project_element = project_element
+            element_material.save()
+            messages.success(request, 'Material added successfully!')
+            return redirect('project_detail', project_id=project_element.project.id)
+    else:
+        form = ElementMaterialForm()
+
+    context = {
+        'form': form,
+        'project_element': project_element,
+        'existing_materials': ElementMaterial.objects.filter(project_element=project_element)
+    }
+    return render(request, 'quotes/manage_element_materials.html', context)
+
+
+def delete_element_material(request, element_material_id):
+    element_material = get_object_or_404(ElementMaterial, id=element_material_id)
+    project_id = element_material.project_element.project.id
+
+    if request.method == 'POST':
+        element_material.delete()
+        messages.success(request, 'Material removed successfully!')
+
+    return redirect('project_detail', project_id=project_id)
+
+@staff_member_required
+def admin_project_detail(request, project_id):
+    project = get_object_or_404(Project, id=project_id)
+    ProjectElementFormSet = formset_factory(ProjectElementForm, extra=1)
+    MaterialFormSet = formset_factory(MaterialForm, extra=1)
+
+    if request.method == 'POST':
+        form = ProjectForm(request.POST, instance=project)
+        element_formset = ProjectElementFormSet(request.POST, prefix='elements')
+        material_formset = MaterialFormSet(request.POST, prefix='materials')
+
+        if form.is_valid() and element_formset.is_valid() and material_formset.is_valid():
+            project = form.save()
+
+            # Save project elements
+            ProjectElement.objects.filter(project=project).delete()
+            for element_form in element_formset:
+                if element_form.cleaned_data:
+                    element = element_form.save(commit=False)
+                    element.project = project
+                    element.save()
+
+            # Save materials
+            project.materials.clear()
+            for material_form in material_formset:
+                if material_form.cleaned_data:
+                    material = material_form.save(commit=False)
+                    material.save()
+                    project.materials.add(material)
+
+            if request.is_ajax():
+                return JsonResponse({'status': 'success'})
+            return redirect('admin_project_list')
+        else:
+            if request.is_ajax():
+                errors = {}
+                if form.errors:
+                    errors.update(form.errors)
+                if element_formset.errors:
+                    errors['elements'] = element_formset.errors
+                if material_formset.errors:
+                    errors['materials'] = material_formset.errors
+                return JsonResponse({'status': 'error', 'errors': errors})
+
+    else:
+        form = ProjectForm(instance=project)
+        element_formset = ProjectElementFormSet(prefix='elements', initial=[
+            {'element_name': element.element_name, 'quantity': element.quantity}
+            for element in project.projectelement_set.all()
+        ])
+        material_formset = MaterialFormSet(prefix='materials', initial=[
+            {'name': material.name, 'quantity': material.quantity, 'unit_price': material.unit_price, 'markup_percentage': material.markup_percentage}
+            for material in project.materials.all()
+        ])
+
+    context = {
+        'project': project,
+        'form': form,
+        'element_formset': element_formset,
+        'material_formset': material_formset,
+    }
+    return render(request, 'quotes/admin_project_detail.html', context)
+
+
+@staff_member_required
+def update_global_markup(request, project_id):
+    if request.method == 'POST':
+        project = get_object_or_404(Project, id=project_id)
+        global_markup = request.POST.get('global_markup')
+        try:
+            global_markup = float(global_markup)
+            for material in project.materials.all():
+                material.markup_percentage = global_markup
+                material.save()
+            return JsonResponse({'status': 'success'})
+        except ValueError:
+            return JsonResponse({'status': 'error', 'message': 'Invalid markup value'})
+    return JsonResponse({'status': 'error', 'message': 'Invalid request method'})
+
+def update_project_ajax(request, project_id):
+    project = get_object_or_404(Project, id=project_id)
+    form = ProjectForm(request.POST, instance=project)
+    ProjectElementFormSet = formset_factory(ProjectElementForm, extra=0)
+    MaterialFormSet = formset_factory(MaterialForm, extra=0)
+    element_formset = ProjectElementFormSet(request.POST, prefix='elements')
+    material_formset = MaterialFormSet(request.POST, prefix='materials')
+
+    if form.is_valid() and element_formset.is_valid() and material_formset.is_valid():
+        project = form.save()
+
+        # Save project elements
+        ProjectElement.objects.filter(project=project).delete()
+        for element_form in element_formset:
+            if element_form.cleaned_data:
+                element = element_form.save(commit=False)
+                element.project = project
+                element.save()
+
+        # Save materials
+        project.materials.clear()
+        for material_form in material_formset:
+            if material_form.cleaned_data:
+                material = material_form.save(commit=False)
+                material.save()
+                project.materials.add(material)
+
+        return JsonResponse({'status': 'success'})
+    else:
+        errors = {}
+        if form.errors:
+            errors.update(form.errors)
+        if element_formset.errors:
+            errors['elements'] = element_formset.errors
+        if material_formset.errors:
+            errors['materials'] = material_formset.errors
+        return JsonResponse({'status': 'error', 'errors': errors})
+
