@@ -25,7 +25,7 @@
                         </div>
                     {% endif %}
                 </div>
-        
+            
                 <div class="form-group">
                     <label for="description">Description</label>
                     <textarea name="description" id="description" class="form-control" rows="4" required></textarea>
@@ -37,68 +37,78 @@
                         </div>
                     {% endif %}
                 </div>
+                
+                <div class="form-group">
+                    <label for="area_size">Area Size (sq.m)</label>
+                    <input type="number" name="area_size" id="area_size" class="form-control" required>
+                </div>
         
                 <div class="form-group">
-                    <label>Project Type</label>
+                    <label>Project Elements</label>
                     <div class="form-group">
                         <div class="form-check">
-                            <input class="form-check-input" type="radio" name="project_type" id="residential" value="residential" required>
-                            <label class="form-check-label" for="residential">
-                                Residential
+                            <input class="form-check-input" type="radio" name="project_type" id="framing" value="framing" required>
+                            <label class="form-check-label" for="framing">
+                                Framing
                             </label>
                         </div>
                         <div class="form-check">
-                            <input class="form-check-input" type="radio" name="project_type" id="commercial" value="commercial">
-                            <label class="form-check-label" for="commercial">
-                                Commercial
+                            <input class="form-check-input" type="radio" name="project_type" id="window_and_door_installation" value="window_and_door_installation">
+                            <label class="form-check-label" for="window_and_door_installation">
+                                Window and Door Installation
                             </label>
                         </div>
                         <div class="form-check">
-                            <input class="form-check-input" type="radio" name="project_type" id="industrial" value="industrial">
-                            <label class="form-check-label" for="industrial">
-                                Industrial
+                            <input class="form-check-input" type="radio" name="project_type" id="electrical" value="electrical">
+                            <label class="form-check-label" for="electrical">
+                                Electrical
+                            </label>
+                        </div>
+                        <div class="form-check">
+                            <input class="form-check-input" type="radio" name="project_type" id="plumbing" value="plumbing">
+                            <label class="form-check-label" for="plumbing">
+                                Plumbing
                             </label>
                         </div>
                     </div>
                     
-                    <div class="form-group">
-                        <label for="area_size">Area Size (sq.m)</label>
-                        <input type="number" name="area_size" id="area_size" class="form-control" required>
-                    </div>
-                    
-                    <div class="form-group">
+                        <div class="form-group">
                         <label>Select Project Elements:</label>
                         <div class="form-check">
-                            <input class="form-check-input" type="checkbox" name="project_elements" id="walls" value="walls">
-                            <label class="form-check-label" for="walls">Walls</label>
+                            <input class="form-check-input" type="radio" name="project_elements" id="exterior_wall_framing" value="exterior_wall_framing">
+                            <label class="form-check-label" for="exterior_wall_framing">Exterior Wall Framing</label>
                         </div>
                         <div class="form-check">
-                            <input class="form-check-input" type="checkbox" name="project_elements" id="roof" value="roof">
-                            <label class="form-check-label" for="roof">Roof</label>
+                            <input class="form-check-input" type="radio" name="project_elements" id="roof_framing" value="roof_framing">
+                            <label class="form-check-label" for="roof_framing">Roof Framing</label>
                         </div>
                         <div class="form-check">
-                            <input class="form-check-input" type="checkbox" name="project_elements" id="flooring" value="flooring">
-                            <label class="form-check-label" for="flooring">Flooring</label>
+                            <input class="form-check-input" type="radio" name="project_elements" id="door_framing" value="door_framing">
+                            <label class="form-check-label" for="door_framing">Door Framing</label>
                         </div>
                         <div class="form-check">
-                            <input class="form-check-input" type="checkbox" name="project_elements" id="second_floor" value="second_floor">
-                            <label class="form-check-label" for="second_floor">Second Floor</label>
+                            <input class="form-check-input" type="radio" name="project_elements" id="barn_door" value="barn_door">
+                            <label class="form-check-label" for="barn_door">Barn Door</label>
                         </div>
                         <div class="form-check">
-                            <input class="form-check-input" type="checkbox" name="project_elements" id="swimming_pool" value="swimming_pool">
-                            <label class="form-check-label" for="swimming_pool">Swimming Pool</label>
+                            <input class="form-check-input" type="radio" name="project_elements" id="sliding_door" value="sliding_door">
+                            <label class="form-check-label" for="sliding_door">Sliding Door</label>
                         </div>
                         <div class="form-check">
-                            <input class="form-check-input" type="checkbox" name="project_elements" id="electrical" value="electrical">
-                            <label class="form-check-label" for="electrical">Electrical</label>
+                            <input class="form-check-input" type="radio" name="project_elements" id="light_switches" value="light_switches">
+                            <label class="form-check-label" for="light_switches">Light Switches</label>
                         </div>
                         <div class="form-check">
-                            <input class="form-check-input" type="checkbox" name="project_elements" id="windows_doors" value="windows_doors">
-                            <label class="form-check-label" for="windows_doors">Windows and Doors</label>
+                            <input class="form-check-input" type="radio" name="project_elements" id="main_panel" value="main_panel">
+                            <label class="form-check-label" for="main_panel">Main Panel</label>
                         </div>
                         <div class="form-check">
-                            <input class="form-check-input" type="checkbox" name="project_elements" id="gardening" value="gardening">
-                            <label class="form-check-label" for="gardening">Gardening</label>
+                            <input class="form-check-input" type="radio" name="project_elements" id="shower_fixture" value="shower_pixture">
+                            <label class="form-check-label" for="shower_fixture">Shower Fixture</label>
+                        </div>
+                        <div class="form-check">
+                            <input class="form-check-input" type="radio" name="project_elements" id="toilet_installation" value="toilet_installation">
+                            <label class="form-check-label" for="toilet_installation">Toilet Installation</label>
                         </div>
                     </div>
                 </div>
