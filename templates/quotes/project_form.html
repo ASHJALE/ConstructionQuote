@@ -1,129 +1,235 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Creates Project</title>
-    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/css/bootstrap.min.css">
-</head>
-<body>
-    {% extends 'core/base.html' %}
+{% extends 'core/base.html' %}
 
-    {% block content %}
-        <div class="container mt-4">
-            <h2>Create Project</h2>
-            <form method="post">
-                {% csrf_token %}
-                <div class="form-group">
-                    <label for="title">Project Title</label>
-                    <input type="text" name="title" id="title" class="form-control" required>
-                    {% if form.title.errors %}
-                        <div class="alert alert-danger">
-                            {% for error in form.title.errors %}
-                                <p>{{ error }}</p>
-                            {% endfor %}
-                        </div>
-                    {% endif %}
+{% block content %}
+<div class="container mt-4">
+    <h2>{% if project %}Edit{% else %}Create{% endif %} Project</h2>
+    <form method="post">
+        {% csrf_token %}
+        <div class="form-group">
+            <label for="title">Project Title</label>
+            <input type="text" name="title" id="title" class="form-control" required 
+                   value="{{ project.title|default:'' }}">
+            {% if form.title.errors %}
+                <div class="alert alert-danger">
+                    {% for error in form.title.errors %}
+                        <p>{{ error }}</p>
+                    {% endfor %}
                 </div>
-            
-                <div class="form-group">
-                    <label for="description">Description</label>
-                    <textarea name="description" id="description" class="form-control" rows="4" required></textarea>
-                    {% if form.description.errors %}
-                        <div class="alert alert-danger">
-                            {% for error in form.description.errors %}
-                                <p>{{ error }}</p>
-                            {% endfor %}
-                        </div>
-                    {% endif %}
+            {% endif %}
+        </div>
+    
+        <div class="form-group">
+            <label for="description">Description</label>
+            <textarea name="description" id="description" class="form-control" rows="4" required>{{ project.description|default:'' }}</textarea>
+            {% if form.description.errors %}
+                <div class="alert alert-danger">
+                    {% for error in form.description.errors %}
+                        <p>{{ error }}</p>
+                    {% endfor %}
                 </div>
-                
-                <div class="form-group">
-                    <label for="area_size">Area Size (sq.m)</label>
-                    <input type="number" name="area_size" id="area_size" class="form-control" required>
-                </div>
-        
-                <div class="form-group">
-                    <label>Project Elements</label>
-                    <div class="form-group">
-                        <div class="form-check">
-                            <input class="form-check-input" type="radio" name="project_type" id="framing" value="framing" required>
-                            <label class="form-check-label" for="framing">
-                                Framing
-                            </label>
-                        </div>
-                        <div class="form-check">
-                            <input class="form-check-input" type="radio" name="project_type" id="window_and_door_installation" value="window_and_door_installation">
-                            <label class="form-check-label" for="window_and_door_installation">
-                                Window and Door Installation
-                            </label>
-                        </div>
-                        <div class="form-check">
-                            <input class="form-check-input" type="radio" name="project_type" id="electrical" value="electrical">
-                            <label class="form-check-label" for="electrical">
-                                Electrical
-                            </label>
-                        </div>
-                        <div class="form-check">
-                            <input class="form-check-input" type="radio" name="project_type" id="plumbing" value="plumbing">
-                            <label class="form-check-label" for="plumbing">
-                                Plumbing
-                            </label>
-                        </div>
-                    </div>
-                    
-                        <div class="form-group">
-                        <label>Select Project Elements:</label>
-                        <div class="form-check">
-                            <input class="form-check-input" type="radio" name="project_elements" id="exterior_wall_framing" value="exterior_wall_framing">
-                            <label class="form-check-label" for="exterior_wall_framing">Exterior Wall Framing</label>
-                        </div>
-                        <div class="form-check">
-                            <input class="form-check-input" type="radio" name="project_elements" id="roof_framing" value="roof_framing">
-                            <label class="form-check-label" for="roof_framing">Roof Framing</label>
-                        </div>
-                        <div class="form-check">
-                            <input class="form-check-input" type="radio" name="project_elements" id="door_framing" value="door_framing">
-                            <label class="form-check-label" for="door_framing">Door Framing</label>
-                        </div>
-                        <div class="form-check">
-                            <input class="form-check-input" type="radio" name="project_elements" id="barn_door" value="barn_door">
-                            <label class="form-check-label" for="barn_door">Barn Door</label>
-                        </div>
-                        <div class="form-check">
-                            <input class="form-check-input" type="radio" name="project_elements" id="sliding_door" value="sliding_door">
-                            <label class="form-check-label" for="sliding_door">Sliding Door</label>
-                        </div>
-                        <div class="form-check">
-                            <input class="form-check-input" type="radio" name="project_elements" id="light_switches" value="light_switches">
-                            <label class="form-check-label" for="light_switches">Light Switches</label>
-                        </div>
-                        <div class="form-check">
-                            <input class="form-check-input" type="radio" name="project_elements" id="main_panel" value="main_panel">
-                            <label class="form-check-label" for="main_panel">Main Panel</label>
-                        </div>
-                        <div class="form-check">
-                            <input class="form-check-input" type="radio" name="project_elements" id="shower_fixture" value="shower_pixture">
-                            <label class="form-check-label" for="shower_fixture">Shower Fixture</label>
-                        </div>
-                        <div class="form-check">
-                            <input class="form-check-input" type="radio" name="project_elements" id="toilet_installation" value="toilet_installation">
-                            <label class="form-check-label" for="toilet_installation">Toilet Installation</label>
-                        </div>
-                    </div>
-                </div>
-        
-                <button type="submit" class="btn btn-primary">Create Project</button>
-                <a href="{% url 'project_list' %}" class="btn btn-secondary">Cancel</a>
-            </form>
+            {% endif %}
         </div>
         
-        <script src="https://code.jquery.com/jquery-3.2.1.slim.min.js"></script>
-        <script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/js/bootstrap.min.js"></script>
+        <div class="form-group">
+            <label for="area_size">Area Size (sq.m)</label>
+            <input type="number" name="area_size" id="area_size" class="form-control" required
+                   value="{{ project.area_size|default:'' }}">
+        </div>
+
+        <div class="form-group">
+            <label><strong>Project Type</strong></label>
+            <div class="form-group">
+                <div class="form-check">
+                    <input class="form-check-input project-type-radio" type="radio" name="project_type" 
+                           id="framing" value="framing" required
+                           {% if project.project_type == 'framing' %}checked{% endif %}>
+                    <label class="form-check-label" for="framing">Framing</label>
+                </div>
+                <div class="form-check">
+                    <input class="form-check-input project-type-radio" type="radio" name="project_type" 
+                           id="window_and_door_installation" value="window_and_door_installation"
+                           {% if project.project_type == 'window_and_door_installation' %}checked{% endif %}>
+                    <label class="form-check-label" for="window_and_door_installation">Window and Door Installation</label>
+                </div>
+                <div class="form-check">
+                    <input class="form-check-input project-type-radio" type="radio" name="project_type" 
+                           id="electrical" value="electrical"
+                           {% if project.project_type == 'electrical' %}checked{% endif %}>
+                    <label class="form-check-label" for="electrical">Electrical</label>
+                </div>
+                <div class="form-check">
+                    <input class="form-check-input project-type-radio" type="radio" name="project_type" 
+                           id="plumbing" value="plumbing"
+                           {% if project.project_type == 'plumbing' %}checked{% endif %}>
+                    <label class="form-check-label" for="plumbing">Plumbing</label>
+                </div>
+            </div>
             
-    {% endblock %}
+            <div class="form-group mt-4">
+                <label><strong>Select Project Elements:</strong></label>
+                <!-- Framing Elements -->
+                <div class="element-group" id="framing-elements">
+                    <div class="form-check">
+                        <input class="form-check-input" type="radio" name="project_element" 
+                               id="exterior_wall_framing" value="exterior_wall_framing"
+                               {% if project.project_element == 'exterior_wall_framing' %}checked{% endif %}>
+                        <label class="form-check-label" for="exterior_wall_framing">Exterior Wall Framing</label>
+                    </div>
+                    <div class="form-check">
+                        <input class="form-check-input" type="radio" name="project_element" 
+                               id="roof_framing" value="roof_framing"
+                               {% if project.project_element == 'roof_framing' %}checked{% endif %}>
+                        <label class="form-check-label" for="roof_framing">Roof Framing</label>
+                    </div>
+                    <div class="form-check">
+                        <input class="form-check-input" type="radio" name="project_element" 
+                               id="door_framing" value="door_framing"
+                               {% if project.project_element == 'door_framing' %}checked{% endif %}>
+                        <label class="form-check-label" for="door_framing">Door Framing</label>
+                    </div>
+                </div>
+
+                <!-- Window and Door Installation Elements -->
+                <div class="element-group" id="window-door-elements">
+                    <div class="form-check">
+                        <input class="form-check-input" type="radio" name="project_element" 
+                               id="barn_door" value="barn_door"
+                               {% if project.project_element == 'barn_door' %}checked{% endif %}>
+                        <label class="form-check-label" for="barn_door">Barn Door</label>
+                    </div>
+                    <div class="form-check">
+                        <input class="form-check-input" type="radio" name="project_element" 
+                               id="sliding_door" value="sliding_door"
+                               {% if project.project_element == 'sliding_door' %}checked{% endif %}>
+                        <label class="form-check-label" for="sliding_door">Sliding Door</label>
+                    </div>
+                </div>
+
+                <!-- Electrical Elements -->
+                <div class="element-group" id="electrical-elements">
+                    <div class="form-check">
+                        <input class="form-check-input" type="radio" name="project_element" 
+                               id="light_switches" value="light_switches"
+                               {% if project.project_element == 'light_switches' %}checked{% endif %}>
+                        <label class="form-check-label" for="light_switches">Light Switches</label>
+                    </div>
+                    <div class="form-check">
+                        <input class="form-check-input" type="radio" name="project_element" 
+                               id="main_panel" value="main_panel"
+                               {% if project.project_element == 'main_panel' %}checked{% endif %}>
+                        <label class="form-check-label" for="main_panel">Main Panel</label>
+                    </div>
+                </div>
+
+                <!-- Plumbing Elements -->
+                <div class="element-group" id="plumbing-elements">
+                    <div class="form-check">
+                        <input class="form-check-input" type="radio" name="project_element" 
+                               id="shower_fixture" value="shower_fixture"
+                               {% if project.project_element == 'shower_fixture' %}checked{% endif %}>
+                        <label class="form-check-label" for="shower_fixture">Shower Fixture</label>
+                    </div>
+                    <div class="form-check">
+                        <input class="form-check-input" type="radio" name="project_element" 
+                               id="toilet_installation" value="toilet_installation"
+                               {% if project.project_element == 'toilet_installation' %}checked{% endif %}>
+                        <label class="form-check-label" for="toilet_installation">Toilet Installation</label>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <button type="submit" class="btn btn-primary">
+            {% if project %}Update{% else %}Create{% endif %} Project
+        </button>
+        <a href="{% url 'project_list' %}" class="btn btn-secondary">Cancel</a>
+    </form>
+</div>
+
+<style>
+    .form-group {
+        margin-bottom: 1.5rem;
+    }
     
-    <script src="https://code.jquery.com/jquery-3.2.1.slim.min.js"></script>
-    <script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/js /bootstrap.min.js"></script>
-</body>
-</html>
+    .form-check {
+        margin-bottom: 0.5rem;
+    }
+    
+    .element-group {
+        margin-left: 1.5rem;
+        padding: 1rem;
+        border-left: 3px solid #007bff;
+        background-color: #f8f9fa;
+        display: none;
+    }
+    
+    .alert {
+        margin-top: 0.5rem;
+    }
+    
+    /* Custom radio button styles */
+    .form-check-input {
+        cursor: pointer;
+    }
+    
+    .form-check-label {
+        cursor: pointer;
+        padding-left: 0.5rem;
+    }
+</style>
+
+<script src="https://code.jquery.com/jquery-3.2.1.slim.min.js"></script>
+<script>
+    $(document).ready(function() {
+        // Function to show relevant elements based on project type
+        function showRelevantElements(projectType) {
+            $('.element-group').hide(); // Hide all element groups
+            switch(projectType) {
+                case 'framing':
+                    $('#framing-elements').show();
+                    break;
+                case 'window_and_door_installation':
+                    $('#window-door-elements').show();
+                    break;
+                case 'electrical':
+                    $('#electrical-elements').show();
+                    break;
+                case 'plumbing':
+                    $('#plumbing-elements').show();
+                    break;
+            }
+        }
+
+        // Show relevant elements on page load if editing
+        var selectedType = $('input[name="project_type"]:checked').val();
+        if (selectedType) {
+            showRelevantElements(selectedType);
+        }
+
+        // Show relevant elements when project type changes
+        $('input[name="project_type"]').change(function() {
+            showRelevantElements($(this).val());
+            // Clear any previously selected project elements
+            $('input[name="project_element"]').prop('checked', false);
+        });
+
+        // Form validation
+        $('form').submit(function(e) {
+            var projectType = $('input[name="project_type"]:checked').val();
+            var projectElement = $('input[name="project_element"]:checked').val();
+            
+            if (!projectType) {
+                alert('Please select a project type.');
+                e.preventDefault();
+                return false;
+            }
+            
+            if (!projectElement) {
+                alert('Please select a project element.');
+                e.preventDefault();
+                return false;
+            }
+        });
+    });
+</script>
+{% endblock %}

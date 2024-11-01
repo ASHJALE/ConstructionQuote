@@ -19,7 +19,7 @@ class Project(models.Model):
         ('light_switches', 'Light Switches'),
         ('main_panel', 'Main Panel'),
         ('shower_fixture', 'Shower Fixture'),
-        ('toilet_installation','Toilet Installation')
+        ('toilet_installation', 'Toilet Installation')
     )
 
     user = models.ForeignKey(User, on_delete=models.CASCADE)

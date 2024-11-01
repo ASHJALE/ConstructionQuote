@@ -1,0 +1,55 @@
+{% extends 'core/base.html' %}
+
+{% block content %}
+<div class="container mt-4">
+    <h2>Edit Project</h2>
+    <form method="post">
+        {% csrf_token %}
+        <div class="form-group">
+            <label for="title">Project Title</label>
+            <input type="text" name="title" id="title" class="form-control" value="{{ project.title }}" required>
+        </div>
+    
+        <div class="form-group">
+            <label for="description">Description</label>
+            <textarea name="description" id="description" class="form-control" rows="4">{{ project.description }}</textarea>
+        </div>
+        
+        <div class="form-group">
+            <label for="area_size">Area Size (sq.m)</label>
+            <input type="number" name="area_size" id="area_size" class="form-control" value="{{ project.area_size }}" required>
+        </div>
+
+        <div class="form-group">
+            <label>Project Type</label>
+            {% for type, label in project.PROJECT_TYPES %}
+            <div class="form-check">
+                <input class="form-check-input" type="radio" name="project_type" 
+                       id="{{ type }}" value="{{ type }}" 
+                       {% if project.project_type == type %}checked{% endif %} required>
+                <label class="form-check-label" for="{{ type }}">
+                    {{ label }}
+                </label>
+            </div>
+            {% endfor %}
+        </div>
+        
+        <div class="form-group">
+            <label>Project Elements</label>
+            {% for element, label in project.PROJECT_ELEMENTS %}
+            <div class="form-check">
+                <input class="form-check-input" type="radio" name="project_elements" 
+                       id="{{ element }}" value="{{ element }}"
+                       {% if project.project_element == element %}checked{% endif %} required>
+                <label class="form-check-label" for="{{ element }}">
+                    {{ label }}
+                </label>
+            </div>
+            {% endfor %}
+        </div>
+
+        <button type="submit" class="btn btn-primary">Save Changes</button>
+        <a href="{% url 'project_list' %}" class="btn btn-secondary">Cancel</a>
+    </form>
+</div>
+{% endblock %}
