@@ -8,6 +8,13 @@
     <script>
         window.location.href = "/";
     </script>
+    <div class="container mt-4">
+        <h2>You are already logged in as {{ user.username }}</h2>
+        <form method="post" action="{% url 'logout' %}">
+            {% csrf_token %}
+            <button type="submit" class="btn btn-primary">Logout</button>
+        </form>
+    </div>
 {% else %}
     <style>
         body {

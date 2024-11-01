@@ -7,34 +7,34 @@
     <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/css/bootstrap.min.css">
 </head>
 <body>
-    <nav class="navbar navbar-expand-lg navbar-light bg-light">
-        <a class="navbar-brand" href="{% url 'project_list' %}">Quotes</a>
-        <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbarSupportedContent" aria-controls="navbarSupportedContent" aria-expanded="false" aria-label="Toggle navigation">
-            <span class="navbar-toggler-icon"></span>
-        </button>
-        <div class="collapse navbar-collapse" id="navbarSupportedContent">
-            <ul class="navbar-nav mr-auto">
-                <li class="nav-item active">
-                    <a class="nav-link" href="{% url 'project_list' %}">Projects <span class="sr-only">(current)</span></a>
+<nav class="navbar navbar-expand-lg navbar-light bg-light">
+    <a class="navbar-brand" href="{% url 'project_list' %}">Quotes</a>
+    <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbarSupportedContent" aria-controls="navbarSupportedContent" aria-expanded="false" aria-label="Toggle navigation">
+        <span class="navbar-toggler-icon"></span>
+    </button>
+    <div class="collapse navbar-collapse" id="navbarSupportedContent">
+        <ul class="navbar-nav mr-auto">
+            <li class="nav-item active">
+                <a class="nav-link" href="{% url 'project_list' %}">Projects <span class="sr-only">(current)</span></a>
+            </li>
+            {% if user.is_authenticated %}
+                <li class="nav-item">
+                    <form method="post" action="{% url 'logout' %}" class="navbar-form">
+                        {% csrf_token %}
+                        <button type="submit" class="btn btn-link nav-link">Logout</button>
+                    </form>
+                </li>
+            {% else %}
+                <li class="nav-item">
+                    <a class="nav-link" href="{% url 'login' %}">Login</a>
                 </li>
                 <li class="nav-item">
-                    <a class="nav-link" href="{% url 'material_list' %}">Materials</a>
+                    <a class="nav-link" href="{% url 'register' %}">Register</a>
                 </li>
-                {% if user.is_authenticated %}
-                    <li class="nav-item">
-                        <a href="{% url 'logout' %}">Logout</a>
-                    </li>
-                {% else %}
-                    <li class="nav-item">
-                        <a class="nav-link" href="{% url 'login' %}">Login</a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="{% url 'register' %}">Register</a>
-                    </li>
-                {% endif %}
-            </ul>
-        </div>
-    </nav>
+            {% endif %}
+        </ul>
+    </div>
+</nav>
     <div class="container">
         {% if messages %}
             <div class="alert alert-info">
@@ -43,7 +43,85 @@
                 {% endfor %}
             </div>
         {% endif %}
-        {% block content %}{% endblock %}
+        {% block content %}
+<div class="container mt-4">
+    <h2>Create Project</h2>
+    <form method="post">
+        {% csrf_token %}
+        <div class="form-group">
+            <label for="title">Project Title</label>
+            <input type="text" name="title" id="title" class="form-control" required>
+        </div>
+
+        <div class="form-group">
+            <label for="description">Description</label>
+            <textarea name="description" id="description" class="form-control" rows="4" required></textarea>
+        </div>
+
+        <div class="form-group">
+            <label>Project Type</label>
+            <div class="form-check">
+                <input class="form-check-input" type="radio" name="project_type" id="residential" value="residential" required>
+                <label class="form-check-label" for="residential">Residential</label>
+            </div>
+            <div class="form-check">
+                <input class="form-check-input" type="radio" name="project_type" id="commercial" value="commercial">
+                <label class="form-check-label" for="commercial">Commercial</label>
+            </div>
+            <div class="form-check">
+                <input class="form-check-input" type="radio" name="project_type" id="industrial" value="industrial">
+                <label class="form-check-label" for="industrial">Industrial</label>
+            </div>
+        </div>
+
+        <div class="form-group">
+            <label for="area_size">Area Size (sq.m)</label>
+            <input type="number" name="area_size" id="area_size" class="form-control" step="0.01" required>
+        </div>
+
+        <div class="form-group">
+            <label>Select project element:</label>
+            <div class="form-check">
+                <input class="form-check-input" type="radio" name="project_element" id="walls" value="walls" required>
+                <label class="form-check-label" for="walls">Walls</label>
+            </div>
+            <div class="form-check">
+                <input class="form-check-input" type="radio" name="project_element" id="roof" value="roof">
+                <label class="form-check-label" for="roof">Roof</label>
+            </div>
+            <div class="form-check">
+                <input class="form-check-input" type="radio" name="project_element" id="flooring" value="flooring">
+                <label class="form-check-label" for="flooring">Flooring</label>
+            </div>
+            <div class="form-check">
+                <input class="form-check-input" type="radio" name="project_element" id="second_floor" value="second_floor">
+                <label class="form-check-label" for="second_floor">Second Floor</label>
+            </div>
+            <div class="form-check">
+                <input class="form-check-input" type="radio" name="project_element" id="swimming_pool" value="swimming_pool">
+                <label class="form-check-label" for="swimming_pool">Swimming Pool</label>
+            </div>
+            <div class="form-check">
+                <input class="form-check-input" type="radio" name="project_element" id="electrical" value="electrical">
+                <label class="form-check-label" for="electrical">Electrical</label>
+            </div>
+            <div class="form-check">
+                <input class="form-check-input" type="radio" name="project_element" id="windows_and_doors" value="windows_and_doors">
+                <label class="form-check-label" for="windows_and_doors">Windows and Doors</label>
+            </div>
+            <div class="form-check">
+                <input class="form-check-input" type="radio" name="project_element" id="gardening" value="gardening">
+                <label class="form-check-label" for="gardening">Gardening</label>
+            </div>
+        </div>
+
+        <button type="submit" class="btn btn-primary">Create Project</button>
+        <a href="{% url 'project_list' %}" class="btn btn-secondary">Cancel</a>
+    </form>
+</div>
+        {% endblock %}
+    
+    
     </div>
     <script src="https://code.jquery.com/jquery-3.2.1.slim.min.js"></script>
     <script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/js/bootstrap.min.js"></script>

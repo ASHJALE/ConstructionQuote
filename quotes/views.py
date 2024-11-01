@@ -3,10 +3,13 @@ from django.contrib.auth.decorators import login_required
 from django.contrib.auth import authenticate, login
 from django.contrib import messages
 from django.contrib.auth.forms import AuthenticationForm
+from django.views.decorators.http import require_http_methods
+
 from .models import Project, Material, Pricing
 from .forms import CustomUserCreationForm
 from django.contrib.auth import logout
 from django.http import HttpResponseNotAllowed
+
 
 
 def home(request):
@@ -21,25 +24,34 @@ def project_list(request):
     }
     return render(request, 'quotes/project_list.html', context)
 
-def logout_view(request):
-    if request.method == 'POST':
-        logout(request)
-        return redirect('login')  # Redirect to your login page
-    else:
-        return HttpResponseNotAllowed(['POST'])
 
+
+@require_http_methods(["POST"])
+def logout_view(request):
+    logout(request)
+    return redirect('login')
 
 @login_required
 def project_create(request):
     if request.method == 'POST':
         title = request.POST['title']
         description = request.POST.get('description', '')
-        project = Project(user=request.user, title=title, description=description)
+        project_type = request.POST.get('project_type')
+        area_size = request.POST.get('area_size')
+        project_element = request.POST.get('project_element')
+
+        project = Project(
+            user=request.user,
+            title=title,
+            description=description,
+            project_type=project_type,
+            area_size=area_size,
+            project_element=project_element
+        )
         project.save()
         messages.success(request, 'Project created successfully!')
         return redirect('project_list')
-    return render(request, 'quotes/project_create.html')
-
+    return render(request, 'quotes/project_form.html')
 
 @login_required
 def project_delete(request, project_id):

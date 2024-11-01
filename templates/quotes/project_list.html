@@ -13,16 +13,33 @@
         {% endfor %}
     {% endif %}
 
-    <table class="table table-striped">
-        <thead class="thead-dark">
-            <tr>
-                <th scope="col">Title</th>
-                <th scope="col">Description</th>
-                <th scope="col">Actions</th>
-            </tr>
-        </thead>
-        
-    </table>
+<table class="table table-striped">
+    <thead class="thead-dark">
+        <tr>
+            <th scope="col">Title</th>
+            <th scope="col">Description</th>
+            <th scope="col">Type</th>
+            <th scope="col">Area Size (sq.m)</th>
+            <th scope="col">Elements</th>
+            <th scope="col">Actions</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for project in projects %}
+        <tr>
+            <td>{{ project.title }}</td>
+            <td>{{ project.description }}</td>
+            <td>{{ project.get_project_type_display }}</td>
+            <td>{{ project.area_size }}</td>
+            <td>{{ project.elements|join:", " }}</td>
+            <td>
+                <a href="{% url 'edit_project' project.id %}" class="btn btn-sm btn-primary">Edit</a>
+                <a href="{% url 'delete_project' project.id %}" class="btn btn-sm btn-danger">Delete</a>
+            </td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
 </div>
 
 <!-- Font Awesome for icons -->
