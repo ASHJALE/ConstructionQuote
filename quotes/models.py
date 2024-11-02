@@ -15,15 +15,13 @@ class Material(models.Model):
 class Project(models.Model):
     STATUS_CHOICES = (
         ('pending', 'Pending'),
-        ('approved', 'Approved'),
-        ('declined', 'Declined'),
-        ('completed', 'Completed'),
-        ('pending', 'Pending Admin Review'),
+        ('pending_review', 'Pending Admin Review'),
         ('quoted', 'Quotation Provided'),
-        ('approved', 'Approved by Admin'),
-        ('declined', 'Declined by Admin'),
-        ('approved', 'Approved by Customer'),
-        ('declined', 'Declined by Customer'),
+        ('approved_admin', 'Approved by Admin'),
+        ('approved_customer', 'Approved by Customer'),
+        ('declined_admin', 'Declined by Admin'),
+        ('declined_customer', 'Declined by Customer'),
+        ('completed', 'Completed'),
     )
 
     PROJECT_TYPES = (
@@ -68,6 +66,32 @@ class Project(models.Model):
 
     def __str__(self):
         return f"{self.title} - {self.get_status_display()}"
+
+    def calculate_total_cost(self):
+        total = 0
+        for project_material in self.projectmaterial_set.all():
+            base_cost = project_material.quantity * project_material.unit_price
+            markup_amount = base_cost * (project_material.markup_percentage / 100)
+            total += base_cost + markup_amount
+        self.total_cost = total
+        return total
+
+    def get_materials_data(self):
+        materials_data = []
+        for pm in self.projectmaterial_set.all():
+            base_cost = pm.quantity * pm.unit_price
+            markup_amount = base_cost * (pm.markup_percentage / 100)
+            materials_data.append({
+                'id': pm.material.id,
+                'name': pm.material.name,
+                'quantity': pm.quantity,
+                'unit': pm.material.unit,
+                'unit_price': pm.unit_price,
+                'base_cost': base_cost,
+                'markup_percentage': pm.markup_percentage,
+                'total_with_markup': base_cost + markup_amount
+            })
+        return materials_data
 
 class ProjectElement(models.Model):
     project = models.ForeignKey(Project, on_delete=models.CASCADE)

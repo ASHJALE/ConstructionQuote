@@ -178,105 +178,73 @@ def project_create(request):
 
 
 @login_required
+@require_http_methods(["GET", "POST"])
 def edit_project(request, project_id):
-    project = get_object_or_404(Project, id=project_id, user=request.user)
-    project_materials = ProjectMaterial.objects.filter(project=project).select_related('material')
+    project = get_object_or_404(Project, id=project_id)
 
     if request.method == 'POST':
+        logger.info(f"Received POST data for project {project_id}: {request.POST}")
         try:
-            # Get form data
-            title = request.POST.get('title')
-            description = request.POST.get('description')
-            location = request.POST.get('location')
-            project_type = request.POST.get('project_type')
-            area_size = request.POST.get('area_size')
-            project_element = request.POST.get('project_element')
+            with transaction.atomic():
+                # Update project basic information
+                project.title = request.POST.get('title')
+                project.description = request.POST.get('description')
+                project.location = request.POST.get('location')
+                project.project_type = request.POST.get('project_type')
+                project.area_size = float(request.POST.get('area_size'))
+                project.project_element = request.POST.get('project_element')
+                project.save()
 
-            # Get materials data
-            material_ids = request.POST.getlist('material_id[]')
-            quantities = request.POST.getlist('quantity[]')
-            unit_prices = request.POST.getlist('unit_price[]')
-            markup_percentages = request.POST.getlist('markup_percentage[]')
+                logger.info(f"Updated basic information for project {project_id}")
 
-            # Validate data lengths match
-            if not (len(material_ids) == len(quantities) == len(unit_prices) == len(markup_percentages)):
-                raise ValueError("Mismatched material data arrays")
+                # Handle materials
+                material_ids = request.POST.getlist('material_id[]')
+                quantities = request.POST.getlist('quantity[]')
+                unit_prices = request.POST.getlist('unit_price[]')
+                markup_percentages = request.POST.getlist('markup_percentage[]')
 
-            # Update project details
-            project.title = title
-            project.description = description
-            project.location = location
-            project.project_type = project_type
-            project.area_size = Decimal(area_size)
-            project.project_element = project_element
+                logger.info(f"Received materials data: {list(zip(material_ids, quantities, unit_prices, markup_percentages))}")
 
-            # Calculate total project cost
-            total_cost = Decimal('0.00')
+                # Clear existing materials
+                ProjectMaterial.objects.filter(project=project).delete()
+                logger.info(f"Cleared existing materials for project {project_id}")
 
-            # Update project materials
-            project.projectmaterial_set.all().delete()
-            for i, material_id in enumerate(material_ids):
-                if material_id:
-                    try:
-                        material = Material.objects.get(id=material_id)
-                        quantity = Decimal(quantities[i])
-                        unit_price = Decimal(unit_prices[i])
-                        markup = Decimal(markup_percentages[i])
+                # Add new materials
+                for i in range(len(material_ids)):
+                    ProjectMaterial.objects.create(
+                        project=project,
+                        material_id=int(material_ids[i]),
+                        quantity=float(quantities[i]),
+                        unit_price=float(unit_prices[i]),
+                        markup_percentage=float(markup_percentages[i])
+                    )
+                logger.info(f"Added {len(material_ids)} new materials to project {project_id}")
 
-                        if quantity <= 0 or unit_price <= 0:
-                            raise ValueError("Quantity and unit price must be positive")
+                # Calculate and update total project cost
+                project.calculate_total_cost()
+                project.save()
+                logger.info(f"Updated total cost for project {project_id}")
 
-                        # Calculate material total
-                        material_cost = quantity * unit_price
-                        markup_amount = material_cost * (markup / 100)
-                        total_material_cost = material_cost + markup_amount
-
-                        total_cost += total_material_cost
-
-                        ProjectMaterial.objects.create(
-                            project=project,
-                            material=material,
-                            quantity=quantity,
-                            unit_price=unit_price,
-                            markup_percentage=markup
-                        )
-                    except Material.DoesNotExist:
-                        messages.error(request, f'Material with ID {material_id} not found')
-                        continue
-
-            # Update project total cost
-            project.total_cost = total_cost
-            project.save()
-
-            messages.success(request, 'Project updated successfully!')
-            return redirect('project_list')
+            return JsonResponse({
+                'status': 'success',
+                'message': 'Project updated successfully'
+            })
 
         except Exception as e:
-            messages.error(request, f'Error updating project: {str(e)}')
-            print(f"Error in edit_project: {str(e)}")  # Debug print
+            logger.error(f"Error updating project {project_id}: {str(e)}", exc_info=True)
+            return JsonResponse({
+                'status': 'error',
+                'message': f"An error occurred: {str(e)}"
+            }, status=400)
 
-    # Prepare context data
-    materials_data = [{
-        'id': pm.material.id,
-        'name': pm.material.name,
-        'quantity': pm.quantity,
-        'unit': pm.material.unit,
-        'unit_price': pm.unit_price,
-        'base_cost': pm.quantity * pm.unit_price,
-        'markup_percentage': pm.markup_percentage,
-        'markup_amount': (pm.quantity * pm.unit_price) * (pm.markup_percentage / 100),
-        'total_with_markup': (pm.quantity * pm.unit_price) * (1 + pm.markup_percentage / 100)
-    } for pm in project_materials]
-
-    total_project_cost = sum(m['total_with_markup'] for m in materials_data)
-
+    # GET request - render the edit form
     context = {
         'project': project,
         'project_types': Project.PROJECT_TYPES,
         'project_elements': Project.PROJECT_ELEMENTS,
-        'materials_data': materials_data,
+        'materials_data': project.get_materials_data(),
         'available_materials': Material.objects.all(),
-        'total_project_cost': total_project_cost,
+        'total_project_cost': project.total_cost
     }
     return render(request, 'quotes/project_edit.html', context)
 
@@ -377,12 +345,20 @@ def admin_dashboard(request):
     completed_count = Project.objects.filter(status='completed').count()
     quotation_count = Quotation.objects.count()
 
+    pending_projects = Project.objects.filter(
+        status='pending'
+    ).select_related('user').order_by('-created_at')
+
+    # Get recently submitted projects (last 5)
+    recent_projects = Project.objects.all().order_by('-created_at')[:5]
+
     context = {
         'pending_count': pending_count,
         'approved_count': approved_count,
         'declined_count': declined_count,
         'completed_count': completed_count,
         'quotation_count': quotation_count,
+        'recent_projects': recent_projects,
     }
     return render(request, 'quotes/admin_dashboard.html', context)
 
@@ -395,14 +371,14 @@ def admin_pending_projects(request):
     }
     return render(request, 'quotes/admin_dashboard.html', context)
 
-@staff_member_required
-def admin_approved_projects(request):
-    projects = Project.objects.filter(status='approved').order_by('-created_at')
-    context = {
-        'projects': projects,
-        'page_title': 'Approved Projects',
-    }
-    return render(request, 'quotes/admin_dashboard.html', context)
+def admin_approve_project(request, project_id):
+    project = get_object_or_404(Project, id=project_id)
+    if request.user.is_staff:
+        project.status = 'approved_admin'
+        project.admin_approved = True
+        project.save()
+        messages.success(request, 'Project has been approved.')
+    return redirect('project_detail', project_id=project.id)
 
 @staff_member_required
 def admin_declined_projects(request):

@@ -123,14 +123,14 @@
             <div class="mt-4">
                 {% if user.is_staff %}
                     {% if project.status == 'pending' %}
-                        <a href="{% url 'admin_approve_project' project.id %}" class="btn btn-success">
-                            <i class="fas fa-check"></i> Approve Project
+                        <a href="{% url 'admin_approve_project' project.id %}" class="btn btn-sm btn-success">
+                            <i class="fas fa-check"></i> Approve
                         </a>
                         <a href="{% url 'provide_quote' project.id %}" class="btn btn-primary">
                             <i class="fas fa-calculator"></i> Provide Quote
                         </a>
                     {% endif %}
-                    
+
                     {% if project.status == 'approved' %}
                         <a href="{% url 'mark_project_completed' project.id %}" class="btn btn-success">
                             <i class="fas fa-check"></i> Mark as Completed
@@ -147,10 +147,15 @@
                     {% endif %}
                 {% endif %}
 
-                <a href="{% url 'project_list' %}" class="btn btn-secondary">
-                    <i class="fas fa-arrow-left"></i> Back to Projects
-                </a>
-
+                {% if user.is_staff or user.is_superuser %}
+                    <a href="{% url 'admin_dashboard' %}" class="btn btn-secondary">
+                        <i class="fas fa-arrow-left"></i> Back to Admin Dashboard
+                    </a>
+                {% else %}
+                    <a href="{% url 'project_list' %}" class="btn btn-secondary">
+                        <i class="fas fa-arrow-left"></i> Back to Projects
+                    </a>
+                {% endif %}
                 {% if project.admin_approved %}
                     <button onclick="window.print()" class="btn btn-info">
                         <i class="fas fa-print"></i> Print Details
