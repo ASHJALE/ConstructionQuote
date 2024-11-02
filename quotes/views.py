@@ -344,6 +344,7 @@ def admin_dashboard(request):
     declined_count = Project.objects.filter(status='declined').count()
     completed_count = Project.objects.filter(status='completed').count()
     quotation_count = Quotation.objects.count()
+    pending_admin_review_count = Project.objects.filter(status='pending_admin_review').count()
 
     pending_projects = Project.objects.filter(
         status='pending'
@@ -359,6 +360,7 @@ def admin_dashboard(request):
         'completed_count': completed_count,
         'quotation_count': quotation_count,
         'recent_projects': recent_projects,
+        'pending_admin_review_count': pending_admin_review_count,
     }
     return render(request, 'quotes/admin_dashboard.html', context)
 
@@ -374,12 +376,16 @@ def admin_pending_projects(request):
 def admin_approve_project(request, project_id):
     project = get_object_or_404(Project, id=project_id)
     if request.user.is_staff:
-        project.status = 'approved_admin'
-        project.admin_approved = True
-        project.save()
-        messages.success(request, 'Project has been approved.')
+        if project.status == 'pending_admin_review':
+            project.status = 'approved'
+            project.admin_approved = True
+            project.save()
+            messages.success(request, 'Project has been given final approval.')
+        else:
+            project.status = 'quoted'
+            project.save()
+            messages.success(request, 'Project has been approved and quoted.')
     return redirect('project_detail', project_id=project.id)
-
 @staff_member_required
 def admin_declined_projects(request):
     projects = Project.objects.filter(status='declined').order_by('-created_at')
@@ -673,9 +679,9 @@ def customer_approve_project(request, project_id):
     project = get_object_or_404(Project, id=project_id, user=request.user)
     if request.method == 'POST':
         project.customer_approved = True
-        project.status = 'approved'
+        project.status = 'pending_admin_review'  # New status
         project.save()
-        messages.success(request, 'You have approved the project quotation.')
+        messages.success(request, 'You have approved the project quotation. It has been sent back to the admin for final review.')
         return redirect('project_detail', project_id=project.id)
     return render(request, 'quotes/customer_approve_project.html', {'project': project})
 
@@ -850,25 +856,142 @@ def create_quotation(request):
     }
     return render(request, 'quotes/admin_create_quotation.html',{'form': form})
 
+import logging
+
+logger = logging.getLogger(__name__)
+
 
 def provide_quote(request, project_id):
     project = get_object_or_404(Project, id=project_id)
 
     if request.method == 'POST':
-        total_cost = request.POST.get('total_cost')
-        admin_notes = request.POST.get('admin_notes')
+        try:
+            # Get all the values from the form
+            service_fees = Decimal(request.POST.get('service_fees', '0'))
+            labor_costs = Decimal(request.POST.get('labor_costs', '0'))
+            additional_markup = Decimal(request.POST.get('additional_markup', '0'))
+            discount = Decimal(request.POST.get('discount', '0'))
+            admin_notes = request.POST.get('admin_notes', '')
 
-        # Update the project with quote details
-        project.total_cost = total_cost
-        project.admin_notes = admin_notes
-        project.status = 'quoted'  # Change status to quoted
-        project.admin_approved = True
-        project.save()
+            # Calculate total
+            materials_cost = project.total_cost or Decimal('0')
+            subtotal = materials_cost + service_fees + labor_costs
+            markup_amount = subtotal * (additional_markup / Decimal('100'))
+            discount_amount = subtotal * (discount / Decimal('100'))
+            total_amount = subtotal + markup_amount - discount_amount
 
-        messages.success(request, 'Quote has been provided successfully.')
-        return redirect('admin_dashboard')
+            # Update project
+            project.status = 'quoted'
+            project.admin_approved = True
+            project.admin_notes = admin_notes
+            project.save()
+
+            # Create or update quotation
+            quotation = Quotation.objects.create(
+                project=project,
+                customer=project.user,  # Add this line to set the customer
+                title=project.title,
+                location=project.location,
+                description=project.description,
+                project_type=project.project_type,
+                area_size=project.area_size,
+                project_element=project.project_element,
+                materials_cost=materials_cost,
+                service_fees=service_fees,
+                labor_costs=labor_costs,
+                additional_markup_percentage=additional_markup,
+                discount_percentage=discount,
+                total_amount=total_amount,
+                admin_notes=admin_notes,
+                status='sent'  # You might want to set an initial status
+            )
+
+            messages.success(request, 'Quote has been provided successfully.')
+            return redirect('admin_dashboard')
+
+        except (ValueError, TypeError) as e:
+            messages.error(request, f'Error in form values: {str(e)}')
+        except Exception as e:
+            messages.error(request, f'Error providing quote: {str(e)}')
+            # Add this line for debugging
+            print(f"Error details: {str(e)}")
+        return redirect('provide_quote', project_id=project.id)
 
     context = {
         'project': project
     }
     return render(request, 'quotes/provide_quote.html', context)
+
+def admin_pending_review_projects(request):
+    projects = Project.objects.filter(status='pending_admin_review').order_by('-created_at')
+    context = {
+        'projects': projects,
+        'page_title': 'Projects Pending Admin Review',
+    }
+    return render(request, 'quotes/admin_project_list.html', context)
+
+def project_detail(request, project_id):
+    project = get_object_or_404(Project, id=project_id)
+
+    # Get all project elements and their materials
+    project_elements = ProjectElement.objects.filter(project=project).prefetch_related('materials')
+
+    elements_data = []
+    total_project_cost = 0
+
+    for element in project_elements:
+        materials_data = []
+        element_total = 0
+
+        for material in element.materials.all():
+            # Calculate material costs
+            material_base_cost = material.quantity * material.unit_price
+            markup_amount = material_base_cost * (material.markup_percentage / 100)
+            total_with_markup = material_base_cost + markup_amount
+
+            materials_data.append({
+                'name': material.name,
+                'quantity': material.quantity,
+                'unit': material.unit,
+                'unit_price': material.unit_price,
+                'base_cost': material_base_cost,
+                'markup_percentage': material.markup_percentage,
+                'total_with_markup': total_with_markup
+            })
+            element_total += total_with_markup
+
+        elements_data.append({
+            'element_name': element.element_name,
+            'materials': materials_data,
+            'element_total': element_total
+        })
+        total_project_cost += element_total
+
+    # Get the latest quotation instead of using get()
+    quotation = Quotation.objects.filter(
+        project=project,
+        customer=project.user
+    ).order_by('-created_at').first()
+
+    # If no quotation exists, create one
+    if not quotation:
+        quotation = Quotation.objects.create(
+            project=project,
+            customer=project.user,
+            title=project.title,
+            location=project.location,
+            description=project.description,
+            project_type=project.project_type,
+            area_size=project.area_size,
+            project_element=project.project_element,
+            total_amount=total_project_cost
+        )
+
+    context = {
+        'project': project,
+        'elements_data': elements_data,
+        'total_project_cost': total_project_cost,
+        'quotation': quotation
+    }
+
+    return render(request, 'quotes/project_detail.html', context)

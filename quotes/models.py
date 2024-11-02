@@ -1,3 +1,4 @@
+from _pydecimal import Decimal
 from django.db import models
 from django.contrib.auth.models import User
 
@@ -22,6 +23,7 @@ class Project(models.Model):
         ('declined_admin', 'Declined by Admin'),
         ('declined_customer', 'Declined by Customer'),
         ('completed', 'Completed'),
+        ('pending_admin_review', 'Pending Admin Review'),
     )
 
     PROJECT_TYPES = (
@@ -67,8 +69,8 @@ class Project(models.Model):
     def __str__(self):
         return f"{self.title} - {self.get_status_display()}"
 
-    def calculate_total_cost(self):
-        total = 0
+    def calculate_total(self):
+        total = Decimal('0')
         for project_material in self.projectmaterial_set.all():
             base_cost = project_material.quantity * project_material.unit_price
             markup_amount = base_cost * (project_material.markup_percentage / 100)
@@ -141,6 +143,11 @@ class Quotation(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
     markup_percentage = models.DecimalField(max_digits=5, decimal_places=2, default=0)
     total_price = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    materials_cost = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    service_fees = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    labor_costs = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    additional_markup = models.DecimalField(max_digits=5, decimal_places=2, default=0)
+    discount = models.DecimalField(max_digits=5, decimal_places=2, default=0)
     status = models.CharField(
         max_length=20,
         choices=[
@@ -151,6 +158,21 @@ class Quotation(models.Model):
         ],
         default='draft'
     )
+    additional_markup_percentage = models.DecimalField(max_digits=5, decimal_places=2, default=0)
+    discount_percentage = models.DecimalField(max_digits=5, decimal_places=2, default=0)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=['project'],
+                name='unique_active_quotation_per_project'
+            )
+        ]
+    def calculate_total(self):
+        subtotal = self.materials_cost + self.service_fees + self.labor_costs
+        markup_amount = subtotal * (self.additional_markup / 100)
+        discount_amount = subtotal * (self.discount / 100)
+        return subtotal + markup_amount - discount_amount
 
 class QuotationMaterial(models.Model):
     quotation = models.ForeignKey(Quotation, on_delete=models.CASCADE)
@@ -170,6 +192,7 @@ class QuotationMaterial(models.Model):
         base_price = self.quantity * self.unit_price
         markup = base_price * (self.markup_percentage / 100)
         return base_price + markup
+
 
 class Pricing(models.Model):
     project = models.ForeignKey(Project, on_delete=models.CASCADE)
