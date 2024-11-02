@@ -25,9 +25,10 @@
                     <p class="card-text">
                         <strong>Status:</strong>
                         <span class="badge {% if project.status == 'pending' %}badge-warning
-                                         {% elif project.status == 'approved' %}badge-success
-                                         {% elif project.status == 'declined' %}badge-danger
-                                         {% else %}badge-info{% endif %}">
+                             {% elif project.status == 'quoted' %}badge-info
+                             {% elif project.status == 'approved' %}badge-success
+                             {% elif project.status == 'declined' %}badge-danger
+                             {% elif project.status == 'completed' %}badge-secondary{% endif %}">
                             {{ project.get_status_display }}
                         </span>
                     </p>
@@ -109,11 +110,17 @@
         box-shadow: 0 4px 8px rgba(0,0,0,0.2);
     }
 
-    .badge {
-        font-size: 1em;
-        padding: 8px 12px;
-        border-radius: 20px;
-    }
+.badge {
+    padding: 0.5em 1em;
+    font-size: 0.875em;
+    font-weight: 600;
+    border-radius: 0.25rem;
+}
+.badge-warning { background-color: #ffc107; color: #212529; }
+.badge-info { background-color: #17a2b8; color: #fff; }
+.badge-success { background-color: #28a745; color: #fff; }
+.badge-danger { background-color: #dc3545; color: #fff; }
+.badge-secondary { background-color: #6c757d; color: #fff; }
 
     .card-header {
         transition: background-color 0.3s ease;

@@ -11,6 +11,8 @@ class Project(models.Model):
         ('quoted', 'Quotation Provided'),
         ('approved', 'Approved by Admin'),
         ('declined', 'Declined by Admin'),
+        ('approved', 'Approved by Customer'),
+        ('declined', 'Declined by Customer'),
     )
 
     PROJECT_TYPES = (
@@ -51,6 +53,9 @@ class Project(models.Model):
     customer_approved = models.BooleanField(default=False)
     total_cost = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
     admin_notes = models.TextField(blank=True)
+    completion_date = models.DateTimeField(null=True, blank=True)
+    completion_notes = models.TextField(blank=True)
+
 
     class Meta:
         ordering = ['-created_at']
@@ -110,14 +115,53 @@ class Pricing(models.Model):
 
 class Quotation(models.Model):
     project = models.ForeignKey(Project, on_delete=models.CASCADE)
+    customer = models.ForeignKey(User, on_delete=models.CASCADE)
+    title = models.CharField(max_length=200)
+    location = models.CharField(max_length=200)
+    description = models.TextField()
+    project_type = models.CharField(max_length=50, choices=Project.PROJECT_TYPES)
+    area_size = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+    project_element = models.CharField(max_length=50, choices=Project.PROJECT_ELEMENTS)
+    materials = models.ManyToManyField(Material, through='QuotationMaterial')
     total_amount = models.DecimalField(max_digits=10, decimal_places=2)
+    admin_notes = models.TextField(blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    markup_percentage = models.DecimalField(max_digits=5, decimal_places=2, default=0)
+    total_price = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    status = models.CharField(max_length=20, choices=[
+        ('draft', 'Draft'),
+        ('sent', 'Sent'),
+        ('approved', 'Approved'),
+        ('rejected', 'Rejected')
+    ], default='draft')
 
     def __str__(self):
         return f'Quotation for {self.project.title}'
+
+class QuotationMaterial(models.Model):
+    quotation = models.ForeignKey(Quotation, on_delete=models.CASCADE)
+    material = models.ForeignKey(Material, on_delete=models.CASCADE)
+    quantity = models.DecimalField(max_digits=10, decimal_places=2)
+    unit_price = models.DecimalField(max_digits=10, decimal_places=2)
+    markup = models.DecimalField(max_digits=5, decimal_places=2)
+    markup_percentage = models.DecimalField(max_digits=5, decimal_places=2, default=0)
+
+    class Meta:
+        unique_together = ['quotation', 'material']
+
+    def get_total(self):
+        return self.quantity * self.unit_price * (1 + self.markup/100)
+
+    def total_price(self):
+        base_price = self.quantity * self.unit_price
+        markup = base_price * (self.markup_percentage / 100)
+        return base_price + markup
 
 class ProjectMaterial(models.Model):
     project = models.ForeignKey(Project, on_delete=models.CASCADE)
     material = models.ForeignKey(Material, on_delete=models.CASCADE)
     quantity = models.DecimalField(max_digits=10, decimal_places=2)
     markup_percentage = models.DecimalField(max_digits=5, decimal_places=2)
+
+

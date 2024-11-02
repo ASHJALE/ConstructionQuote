@@ -44,6 +44,42 @@
 
             <h2>{{ page_title }}</h2>
 
+            <!-- Project Status Overview -->
+            <div class="row mt-4 mb-4">
+                <div class="col-md-3">
+                    <div class="card bg-warning text-dark">
+                        <div class="card-body">
+                            <h5 class="card-title">Pending Projects</h5>
+                            <h2>{{ pending_count }}</h2>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card bg-success text-white">
+                        <div class="card-body">
+                            <h5 class="card-title">Approved Projects</h5>
+                            <h2>{{ approved_count }}</h2>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card bg-danger text-white">
+                        <div class="card-body">
+                            <h5 class="card-title">Declined Projects</h5>
+                            <h2>{{ declined_count }}</h2>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card bg-info text-white">
+                        <div class="card-body">
+                            <h5 class="card-title">Completed Projects</h5>
+                            <h2>{{ completed_count }}</h2>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
             <!-- Projects Table -->
             <div class="card mt-4">
                 <div class="card-body">
@@ -67,7 +103,7 @@
                                     <td>{{ project.title }}</td>
                                     <td>{{ project.user.username }}</td>
                                     <td>{{ project.get_project_type_display }}</td>
-                                    <td>{{ project.location }}</td>
+                                    <td>{{ project.location }}</td >
                                     <td>{{ project.created_at|date:"M d, Y" }}</td>
                                     <td>
                                         <div class="btn-group">
@@ -159,6 +195,27 @@
     .badge {
         font-size: 0.8rem;
         padding: 0.4rem 0.6rem;
+    }
+
+    .card {
+        border: none;
+        border-radius: 10px;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    }
+
+    .card-body {
+        padding: 1.5rem;
+    }
+
+    .card-title {
+        margin-bottom: 0.5rem;
+        font-size: 1rem;
+    }
+
+    .card h2 {
+        font-size: 2rem;
+        font-weight: bold;
+        margin-bottom: 0;
     }
 </style>
 {% endblock %}

@@ -1,0 +1,249 @@
+{% extends 'core/base.html' %}
+
+{% block content %}
+<div class="container mt-4">
+    {% if messages %}
+        {% for message in messages %}
+            <div class="alert alert-{{ message.tags }} alert-dismissible fade show">
+                {{ message }}
+                <button type="button" class="close" data-dismiss="alert">
+                    <span>&times;</span>
+                </button>
+            </div>
+        {% endfor %}
+    {% endif %}
+
+    <div class="card shadow">
+        <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+            <h3 class="mb-0">Mark Project as Completed</h3>
+            <span class="badge badge-light">Project #{{ project.id }}</span>
+        </div>
+        
+        <div class="card-body">
+            <div class="row mb-4">
+                <div class="col-md-6">
+                    <h5 class="card-title">{{ project.title }}</h5>
+                    <div class="project-status">
+                        <span class="badge badge-{{ project.status|lower }} p-2">
+                            {{ project.get_status_display }}
+                        </span>
+                    </div>
+                </div>
+                <div class="col-md-6 text-right">
+                    <p class="text-muted mb-1">Created: {{ project.created_at|date:"M d, Y" }}</p>
+                    <p class="text-muted">Last Updated: {{ project.updated_at|date:"M d, Y" }}</p>
+                </div>
+            </div>
+
+            <div class="project-details mb-4">
+                <div class="row">
+                    <div class="col-md-6">
+                        <h6 class="text-muted">Project Information</h6>
+                        <table class="table table-sm">
+                            <tr>
+                                <th>Location:</th>
+                                <td>{{ project.location }}</td>
+                            </tr>
+                            <tr>
+                                <th>Type:</th>
+                                <td>{{ project.get_project_type_display }}</td>
+                            </tr>
+                            <tr>
+                                <th>Element:</th>
+                                <td>{{ project.get_project_element_display }}</td>
+                            </tr>
+                            <tr>
+                                <th>Area Size:</th>
+                                <td>{{ project.area_size }} sq.m</td>
+                            </tr>
+                        </table>
+                    </div>
+                    <div class="col-md-6">
+                        <h6 class="text-muted">Financial Details</h6>
+                        <table class="table table-sm">
+                            <tr>
+                                <th>Total Cost:</th>
+                                <td class="text-primary font-weight-bold">₱{{ project.total_cost|floatformat:2 }}</td>
+                            </tr>
+                            <tr>
+                                <th>Status:</th>
+                                <td>
+                                    {% if project.admin_approved %}
+                                        <span class="text-success">✓ Admin Approved</span>
+                                    {% endif %}
+                                    {% if project.customer_approved %}
+                                        <br><span class="text-success">✓ Customer Approved</span>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <div class="completion-checklist mb-4">
+                <h6 class="text-muted mb-3">Completion Checklist</h6>
+                <div class="alert alert-warning">
+                    <i class="fas fa-exclamation-triangle"></i>
+                    Please verify the following before marking the project as completed:
+                </div>
+                
+                <form method="post" id="completionForm">
+                    {% csrf_token %}
+                    <div class="form-group">
+                        <div class="custom-control custom-checkbox mb-2">
+                            <input type="checkbox" class="custom-control-input" id="check1" required>
+                            <label class="custom-control-label" for="check1">
+                                All project elements have been completed according to specifications
+                            </label>
+                        </div>
+                        <div class="custom-control custom-checkbox mb-2">
+                            <input type="checkbox" class="custom-control-input" id="check2" required>
+                            <label class="custom-control-label" for="check2">
+                                Quality checks have been performed and approved
+                            </label>
+                        </div>
+                        <div class="custom-control custom-checkbox mb-2">
+                            <input type="checkbox" class="custom-control-input" id="check3" required>
+                            <label class="custom-control-label" for="check3">
+                                All materials and costs have been accounted for
+                            </label>
+                        </div>
+                        <div class="custom-control custom-checkbox mb-2">
+                            <input type="checkbox" class="custom-control-input" id="check4" required>
+                            <label class="custom-control-label" for="check4">
+                                Customer has reviewed and accepted the completed work
+                            </label>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="completion_notes">Completion Notes (Optional)</label>
+                        <textarea class="form-control" id="completion_notes" name="completion_notes" rows="3" 
+                                  placeholder="Add any final notes or comments about the project completion..."></textarea>
+                    </div>
+
+                    <div class="d-flex justify-content-between align-items-center mt-4">
+                        <a href="{% url 'project_detail' project.id %}" class="btn btn-secondary">
+                            <i class="fas fa-arrow-left"></i> Back to Project
+                        </a>
+                        <button type="submit" class="btn btn-success" id="completeButton">
+                            <i class="fas fa-check-circle"></i> Confirm Completion
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    .project-details {
+        background-color: #f8f9fa;
+        padding: 1.5rem;
+        border-radius: 0.5rem;
+        border-left: 4px solid #007bff;
+    }
+
+    .completion-checklist {
+        background-color: #fff;
+        padding: 1.5rem;
+        border-radius: 0.5rem;
+        border: 1px solid #dee2e6;
+    }
+
+    .badge {
+        font-size: 0.9rem;
+    }
+
+    .badge-pending {
+        background-color: #ffc107;
+    }
+
+    .badge-approved {
+        background-color: #28a745;
+    }
+
+    .badge-completed {
+        background-color: #17a2b8;
+    }
+
+    .table th {
+        width: 40%;
+    }
+
+    .custom-checkbox .custom-control-label::before {
+        border-radius: 0.25rem;
+        border: 2px solid #007bff;
+    }
+
+    .custom-checkbox .custom-control-input:checked ~ .custom-control-label::before {
+        background-color: #28a745;
+        border-color: #28a745;
+    }
+</style>
+<script>
+$(document).ready(function() {
+    // Form validation
+    $('#completionForm').submit(function(e) {
+        let checkboxes = $('.custom-control-input');
+        let allChecked = true;
+        
+        checkboxes.each(function() {
+            if (!$(this).is(':checked')) {
+                allChecked = false;
+                return false;
+            }
+        });
+
+        if (!allChecked) {
+            e.preventDefault();
+            alert('Please complete all items in the checklist before marking the project as completed.');
+            return false;
+        }
+
+        // Confirmation dialog
+        if (!confirm('Are you sure you want to mark this project as completed? This action cannot be undone.')) {
+            e.preventDefault();
+            return false;
+        }
+
+        // Disable submit button to prevent double submission
+        $('#completeButton').prop('disabled', true).html('<i class="fas fa-spinner fa-spin"></i> Processing...');
+    });
+
+    // Tooltip for project status
+    $('.project-status .badge').tooltip({
+        title: 'Current project status',
+        placement: 'top'
+    });
+
+    // Animate checklist items when checked
+    $('.custom-control-input').change(function() {
+        if ($(this).is(':checked')) {
+            $(this).closest('.custom-control').addClass('text-success').find('label').append(' <i class="fas fa-check"></i>');
+        } else {
+            $(this).closest('.custom-control').removeClass('text-success').find('label i').remove();
+        }
+    });
+
+    // Character count for completion notes
+    $('#completion_notes').on('input', function() {
+        let maxLength = 500;
+        let currentLength = $(this).val().length;
+        let remainingChars = maxLength - currentLength;
+        
+        if (!$('#char-count').length) {
+            $(this).after('<small id="char-count" class="form-text text-muted"></small>');
+        }
+        
+        $('#char-count').text(`${remainingChars} characters remaining`);
+        
+        if (remainingChars < 50) {
+            $('#char-count').removeClass('text-muted').addClass('text-danger');
+        } else {
+            $('#char-count').removeClass('text-danger').addClass('text-muted');
+        }
+    });
+});
+</script>

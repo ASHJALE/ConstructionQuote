@@ -10,10 +10,14 @@
             <input type="text" name="title" id="title" class="form-control" required
                    value="{{ project.title|default:'' }}">
             {% if form.title.errors %}
-                <div class="alert alert-danger">
-                    {% for error in form.title.errors %}
-                        <p>{{ error }}</p>
-                    {% endfor %}
+                <div class="form-group">
+                    <label for="{{ form.project.id_for_label }}">Project:</label>
+                    {{ form.project }}
+                    {% if form.project.errors %}
+                        <div class="alert alert-danger">
+                            {{ form.project.errors }}
+                        </div>
+                    {% endif %}
                 </div>
             {% endif %}
         </div>

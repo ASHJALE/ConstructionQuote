@@ -3,285 +3,234 @@
 
 {% block content %}
 <div class="container mt-4">
-    <h2>Update Project: {{ project.title }}</h2>
-    <form method="post" id="projectForm">
-        {% csrf_token %}
-        <div class="row">
-            <div class="col-md-6">
-                <h3>Project Details</h3>
-                {{ form.as_p }}
-            </div>
-            <div class="col-md-6">
-                <h3>Project Elements</h3>
-                {{ element_formset.management_form }}
-                <div id="element-formset">
-                    {% for element_form in element_formset %}
-                        <div class="element-form">
-                            {{ element_form.as_p }}
-                            <button type="button" class="btn btn-danger remove-element">Remove Element</button>
+    <div class="card">
+        <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+            <h2 class="mb-0">Project Details: {{ project.title }}</h2>
+            <span class="badge {% if project.status == 'pending' %}bg-warning
+                          {% elif project.status == 'approved' %}bg-success
+                          {% elif project.status == 'declined' %}bg-danger
+                          {% else %}bg-info{% endif %}">
+                {{ project.get_status_display }}
+            </span>
+        </div>
+        
+        <div class="card-body">
+            <form method="post" id="projectForm">
+                {% csrf_token %}
+                
+                <!-- Project Information Section -->
+                <div class="row mb-4">
+                    <div class="col-md-6">
+                        <h4>Basic Information</h4>
+                        <div class="form-group">
+                            <label>Project Title</label>
+                            <input type="text" name="title" class="form-control" value="{{ project.title }}" required>
                         </div>
-                    {% endfor %}
+                        <div class="form-group">
+                            <label>Description</label>
+                            <textarea name="description" class="form-control" rows="3">{{ project.description }}</textarea>
+                        </div>
+                        <div class="form-group">
+                            <label>Location</label>
+                            <input type="text" name="location" class="form-control" value="{{ project.location }}" required>
+                        </div>
+                        <div class="form-group">
+                            <label>Area Size (sq.m)</label>
+                            <input type="number" name="area_size" class="form-control" value="{{ project.area_size }}" required>
+                        </div>
+                    </div>
+                    
+                    <div class="col-md-6">
+                        <h4>Project Status</h4>
+                        <div class="form-group">
+                            <label>Current Status</label>
+                            <select name="status" class="form-control">
+                                {% for status, label in project.STATUS_CHOICES %}
+                                    <option value="{{ status }}" {% if project.status == status %}selected{% endif %}>
+                                        {{ label }}
+                                    </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        
+                        <h4 class="mt-4">Cost Information</h4>
+                        <div class="card bg-light">
+                            <div class="card-body">
+                                <div class="form-group">
+                                    <label>Global Markup Percentage</label>
+                                    <div class="input-group">
+                                        <input type="number" id="global-markup" class="form-control" step="0.01" min="0">
+                                        <div class="input-group-append">
+                                            <button type="button" class="btn btn-primary" id="apply-global-markup">
+                                                Apply to All
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                                <h5>Total Project Cost</h5>
+                                <h3 class="text-primary">₱<span id="total-cost">0.00</span></h3>
+                            </div>
+                        </div>
+                    </div>
                 </div>
-                <button type="button" class="btn btn-secondary" id="add-element">Add Element</button>
-            </div>
-        </div>
 
-        <h3>Materials</h3>
-        <div class="form-group">
-            <label for="global-markup">Global Markup %:</label>
-            <input type="number" id="global-markup" step="0.01" min="0">
-            <button type="button" class="btn btn-primary" id="apply-global-markup">Apply Global Markup</button>
-        </div>
-        {{ material_formset.management_form }}
-        <div id="material-formset">
-            {% for material_form in material_formset %}
-                <div class="material-form">
-                    {{ material_form.as_p }}
-                    <button type="button" class="btn btn-danger remove-material">Remove Material</button>
+                <!-- Materials Section -->
+                <h4>Materials and Costs</h4>
+                <div class="table-responsive">
+                    <table class="table table-bordered" id="materials-table">
+                        <thead>
+                            <tr>
+                                <th>Material</th>
+                                <th>Quantity</th>
+                                <th>Unit</th>
+                                <th>Unit Price (₱)</th>
+                                <th>Markup %</th>
+                                <th>Total Cost (₱)</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="materials-body">
+                            {% for material in materials %}
+                            <tr class="material-row">
+                                <td>
+                                    <input type="text" name="material_name[]" class="form-control" 
+                                           value="{{ material.name }}" required>
+                                </td>
+                                <td>
+                                    <input type="number" name="quantity[]" class="form-control quantity" 
+                                           value="{{ material.quantity }}" min="0" required>
+                                </td>
+                                <td>
+                                    <input type="text" name="unit[]" class="form-control" 
+                                           value="{{ material.unit }}" required>
+                                </td>
+                                <td>
+                                    <input type="number" name="unit_price[]" class="form-control unit-price" 
+                                           value="{{ material.unit_price }}" min="0" step="0.01" required>
+                                </td>
+                                <td>
+                                    <input type="number" name="markup[]" class="form-control markup" 
+                                           value="{{ material.markup_percentage }}" min="0" step="0.01" required>
+                                </td>
+                                <td>
+                                    <span class="material-total">₱{{ material.total_cost }}</span>
+                                </td>
+                                <td>
+                                    <button type="button" class="btn btn-danger btn-sm remove-material">
+                                        <i class="fas fa-trash"></i>
+                                    </button>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                    <button type="button" class="btn btn-secondary" id="add-material">
+                        <i class="fas fa-plus"></i> Add Material
+                    </button>
                 </div>
-            {% endfor %}
-        </div>
-        <button type="button" class="btn btn-secondary" id="add-material">Add Material</button>
 
-        <button type="submit" class="btn btn-primary mt-3">Update Project</button>
-    </form>
+                <!-- Admin Notes -->
+                <div class="form-group mt-4">
+                    <label>Admin Notes</label>
+                    <textarea name="admin_notes" class="form-control" rows="3">{{ project.admin_notes }}</textarea>
+                </div>
+
+                <!-- Submit Buttons -->
+                <div class="mt-4">
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-save"></i> Save Changes
+                    </button>
+                    <a href="{% url 'admin_project_list' %}" class="btn btn-secondary">
+                        <i class="fas fa-arrow-left"></i> Back to List
+                    </a>
+                </div>
+            </form>
+        </div>
+    </div>
 </div>
 
-<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
-    <script>
-function formatCurrency(amount) {
-    return parseFloat(amount).toFixed(2).replace(/\d(?=(\d{3})+\.)/g, '$&,');
-}
-
-function updateMaterialCost(element) {
-    const materialForm = $(element).closest('.material-form');
-    const quantity = parseFloat(materialForm.find('.quantity').val()) || 0;
-    const unitPrice = parseFloat(materialForm.find('.unit-price').val()) || 0;
-    const markupPercentage = parseFloat(materialForm.find('.markup-percentage').val()) || 0;
-
-    const baseCost = quantity * unitPrice;
-    const markupAmount = baseCost * (markupPercentage / 100);
-    const totalCost = baseCost + markupAmount;
-
-    materialForm.find('.material-total').val('₱' + formatCurrency(totalCost));
-    updateProjectTotals();
-}
-
-function updateProjectTotals() {
-    let totalBaseCost = 0;
-    let totalMarkupAmount = 0;
-
-    $('.material-form').each(function() {
-        const quantity = parseFloat($(this).find('.quantity').val()) || 0;
-        const unitPrice = parseFloat($(this).find('.unit-price').val()) || 0;
-        const markupPercentage = parseFloat($(this).find('.markup-percentage').val()) || 0;
-
-        const baseCost = quantity * unitPrice;
-        const markupAmount = baseCost * (markupPercentage / 100);
-
-        totalBaseCost += baseCost;
-        totalMarkupAmount += markupAmount;
-    });
-
-    const totalCost = totalBaseCost + totalMarkupAmount;
-
-    $('#base-cost').text(formatCurrency(totalBaseCost));
-    $('#markup-amount').text(formatCurrency(totalMarkupAmount));
-    $('#total-cost').text(formatCurrency(totalCost));
-}
-
+{% block extra_js %}
+<script>
 $(document).ready(function() {
-    // Initialize all material costs and project totals
-    $('.material-form').each(function() {
-        updateMaterialCost($(this).find('.quantity'));
-    });
-
-    // Handle adding new material
-    $('#add-material').click(function() {
-        var form_idx = $('#id_materials-TOTAL_FORMS').val();
-        var newMaterial = $('#material-formset .material-form:first').clone();
-        newMaterial.find(':input').val('').attr('value', '');
-        newMaterial.find(':input').each(function() {
-            var name = $(this).attr('name').replace('-0-', '-' + form_idx + '-');
-            var id = 'id_' + name;
-            $(this).attr({'name': name, 'id': id});
-        });
-        $('#material-formset').append(newMaterial);
-        $('#id_materials-TOTAL_FORMS').val(parseInt(form_idx) + 1);
-        updateProjectTotals();
-    });
-
-    // Handle removing material
-    $(document).on('click', '.remove-material', function() {
-        if ($('.material-form').length > 1) {
-            $(this).closest('.material-form').remove();
-            var form_idx = $('#id_materials-TOTAL_FORMS').val();
-            $('#id_materials-TOTAL_FORMS').val(parseInt(form_idx) - 1);
-            updateMaterialIndexes();
-            updateProjectTotals();
-        } else {
-            alert('You must have at least one material.');
-        }
-    });
-
-    // Handle global markup changes
-    $('#apply-global-markup').click(function() {
-        const globalMarkup = parseFloat($('#global-markup').val()) || 0;
-        $('.markup-percentage').val(globalMarkup);
-        $('.material-form').each(function() {
-            updateMaterialCost($(this).find('.quantity'));
-        });
-    });
-
-    // Real-time updates for quantity, unit price, and markup changes
-    $(document).on('input', '.quantity, .unit-price, .markup-percentage', function() {
-        updateMaterialCost(this);
-    });
-
-    function updateMaterialIndexes() {
-        $('.material-form').each(function(index) {
-            $(this).find(':input').each(function() {
-                var name = $(this).attr('name').replace(/-\d+-/, '-' + index + '-');
-                var id = 'id_' + name;
-                $(this).attr({'name': name, 'id': id});
-            });
-        });
+    // Function to calculate material cost
+    function calculateMaterialCost(row) {
+        const quantity = parseFloat(row.find('.quantity').val()) || 0;
+        const unitPrice = parseFloat(row.find('.unit-price').val()) || 0;
+        const markup = parseFloat(row.find('.markup').val()) || 0;
+        
+        const baseCost = quantity * unitPrice;
+        const markupAmount = baseCost * (markup / 100);
+        const totalCost = baseCost + markupAmount;
+        
+        row.find('.material-total').text('₱' + totalCost.toFixed(2));
+        calculateTotalProjectCost();
     }
 
-    // Form submission handling
-    $('#projectForm').submit(function(e) {
-        e.preventDefault();
+    // Calculate total project cost
+    function calculateTotalProjectCost() {
+        let total = 0;
+        $('.material-total').each(function() {
+            total += parseFloat($(this).text().replace('₱', '')) || 0;
+        });
         
-        // Validate form data
-        let isValid = true;
-        $('.material-form').each(function() {
-            const name = $(this).find('.material-name').val();
-            const quantity = $(this).find('.quantity').val();
-            const unitPrice = $(this).find('.unit-price').val();
-            
-            if (!name || !quantity || !unitPrice) {
-                isValid = false;
-                return false;
-            }
-        });
+        $('#total-cost').text(total.toFixed(2));
+    }
 
-        if (!isValid) {
-            alert('Please fill in all required fields for materials.');
-            return;
-        }
-
-        // Submit form via AJAX
-        $.ajax({
-            url: "{% url 'update_project_ajax' project.id %}",
-            type: 'POST',
-            data: $(this).serialize(),
-            success: function(response) {
-                if (response.status === 'success') {
-                    alert('Project updated successfully!');
-                    window.location.reload();
-                } else {
-                    alert('Error updating project: ' + response.message);
-                }
-            },
-            error: function() {
-                alert('An error occurred while updating the project.');
-            }
+    // Apply global markup to all materials
+    $('#apply-global-markup').on('click', function() {
+        const globalMarkup = parseFloat($('#global-markup').val()) || 0;
+        
+        $('.material-row').each(function() {
+            const row = $(this);
+            const markup = row.find('.markup');
+            markup.val(globalMarkup);
+            calculateMaterialCost(row);
         });
+    });
+
+    // Remove material row
+    $(document).on('click', '.remove-material', function() {
+        $(this).closest('.material-row').remove();
+        calculateTotalProjectCost();
+    });
+
+    // Add new material row
+    $('#add-material').on('click', function() {
+        const newRow = `
+            <tr class="material-row">
+                <td>
+                    <input type="text" name="material_name[]" class="form-control" required>
+                </td>
+                <td>
+                    <input type="number" name="quantity[]" class="form-control quantity" min="0" required>
+                </td>
+                <td>
+                    <input type="text" name="unit[]" class="form-control" required>
+                </td>
+                <td>
+                    <input type="number" name="unit_price[]" class="form-control unit-price" min="0" step="0.01" required>
+                </td>
+                <td>
+                    <input type="number" name="markup[]" class="form-control markup" min="0" step="0.01" required>
+                </td>
+                <td>
+                    <span class="material-total">₱0.00</span>
+                </td>
+                <td>
+                    <button type="button" class="btn btn-danger btn-sm remove-material">
+                        <i class="fas fa-trash"></i>
+                    </button>
+                </td>
+            </tr>
+        `;
+        
+        $('#materials-body').append(newRow);
+    });
+
+    // Initialize material cost calculation
+    $('.material-row').each(function() {
+        calculateMaterialCost($(this));
     });
 });
-</script>
-<script>
-    $(document).ready(function() {
-        function updateElementForms() {
-            $('.element-form').each(function(index) {
-                $(this).find(':input').each(function() {
-                    var name = $(this).attr('name').replace('-' + (index-1) + '-', '-' + index + '-');
-                    var id = 'id_' + name;
-                    $(this).attr({'name': name, 'id': id});
-                });
-            });
-        }
-
-        function updateMaterialForms() {
-            $('.material-form').each(function(index) {
-                $(this).find(':input').each(function() {
-                    var name = $(this).attr('name').replace('-' + (index-1) + '-', '-' + index + '-');
-                    var id = 'id_' + name;
-                    $(this).attr({'name': name, 'id': id});
-                });
-            });
-        }
-
-        $('#add-element').click(function() {
-            var form_idx = $('#id_elements-TOTAL_FORMS').val();
-            $('#element-formset').append($('#element-formset .element-form:first').clone());
-            $('#element-formset .element-form:last').find(':input').val('');
-            $('#id_elements-TOTAL_FORMS').val(parseInt(form_idx) + 1);
-            updateElementForms();
-        });
-
-        $('#add-material').click(function() {
-            var form_idx = $('#id_materials-TOTAL_FORMS').val();
-            $('#material-formset').append($('#material-formset .material-form:first').clone());
-            $('#material-formset .material-form:last').find(':input').val('');
-            $('#id_materials-TOTAL_FORMS').val(parseInt(form_idx) + 1);
-            updateMaterialForms();
-        });
-
-        $(document).on('click', '.remove-element', function() {
-            $(this).closest('.element-form').remove();
-            var form_idx = $('#id_elements-TOTAL_FORMS').val();
-            $('#id_elements-TOTAL_FORMS').val(parseInt(form_idx) - 1);
-            updateElementForms();
-        });
-
-        $(document).on('click', '.remove-material', function() {
-            $(this).closest('.material-form').remove();
-            var form_idx = $('#id_materials-TOTAL _FORMS').val();
-            $('#id_materials-TOTAL_FORMS').val(parseInt(form_idx) - 1);
-            updateMaterialForms();
-        });
-
-        $('#projectForm').submit(function(e) {
-            e.preventDefault();
-            
-            // Validate form data
-            let isValid = true;
-            $('.material-form').each(function() {
-                const name = $(this).find('.material-name').val();
-                const quantity = $(this).find('.quantity').val();
-                const unitPrice = $(this).find('.unit-price').val();
-                
-                if (!name || !quantity || !unitPrice) {
-                    isValid = false;
-                    return false;
-                }
-            });
-        
-            if (!isValid) {
-                alert('Please fill in all required fields for materials.');
-                return;
-            }
-        
-            // Submit form via AJAX
-            $.ajax({
-                url: "{% url 'update_project_ajax' project.id %}",
-                type: 'POST',
-                data: $(this).serialize(),
-                success: function(response) {
-                    if (response.status === 'success') {
-                        alert('Project updated successfully!');
-                        window.location.reload();
-                    } else {
-                        alert('Error updating project. Please check the form and try again.');
-                        console.log(response.errors);
-                    }
-                },
-                error: function() {
-                    alert('An error occurred while updating the project.');
-                }
-            });
-        });
-    });
 </script>
 {% endblock %}

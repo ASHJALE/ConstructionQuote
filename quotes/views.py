@@ -1,11 +1,14 @@
+import json
 
 from django.contrib.auth import authenticate, login
 from django.contrib.auth.forms import AuthenticationForm
+from django.core.mail import send_mail
+from django.forms import formset_factory
 from django.http import JsonResponse
 from django.views.decorators.http import require_http_methods
 from .admin import ElementMaterialForm
-from .models import Project, Material, Pricing, ProjectElement, ElementMaterial
-from .forms import CustomUserCreationForm, ProjectForm
+from .models import Project, Material, Pricing, ProjectElement, ElementMaterial, Quotation
+from .forms import CustomUserCreationForm, ProjectForm, QuotationForm, QuotationMaterialForm
 from django.contrib.auth import logout
 from django.contrib.auth.decorators import login_required, user_passes_test
 from django.contrib.admin.views.decorators import staff_member_required
@@ -161,32 +164,51 @@ def project_create(request):
 
 
 @login_required
+@login_required
 def edit_project(request, project_id):
     project = get_object_or_404(Project, id=project_id, user=request.user)
 
     if request.method == 'POST':
+        print("POST data:", request.POST)  # Debug print
+
         # Get form data
         title = request.POST.get('title')
         description = request.POST.get('description')
-        location = request.POST.get('location')  # Add this line
+        location = request.POST.get('location')
         project_type = request.POST.get('project_type')
         area_size = request.POST.get('area_size')
-        project_element = request.POST.get('project_elements')
+        project_element = request.POST.get('project_element')
 
-        # Update project
-        project.title = title
-        project.description = description
-        project.location = location  # Add this line
-        project.project_type = project_type
-        project.area_size = area_size
-        project.project_element = project_element
-        project.save()
+        try:
+            print("Updating project with:", {  # Debug print
+                'title': title,
+                'description': description,
+                'location': location,
+                'project_type': project_type,
+                'area_size': area_size,
+                'project_element': project_element
+            })
 
-        messages.success(request, 'Project updated successfully!')
-        return redirect('project_list')
+            project.title = title
+            project.description = description
+            project.location = location
+            project.project_type = project_type
+            project.area_size = area_size
+            project.project_element = project_element
+            project.save()
 
-    return render(request, 'quotes/project_edit.html', {'project': project})
+            messages.success(request, 'Project updated successfully!')
+            return redirect('project_list')
+        except Exception as e:
+            print("Error:", str(e))  # Debug print
+            messages.error(request, f'Error updating project: {str(e)}')
 
+    context = {
+        'project': project,
+        'project_types': Project.PROJECT_TYPES,
+        'project_elements': Project.PROJECT_ELEMENTS,
+    }
+    return render(request, 'quotes/project_edit.html', context)
 @user_passes_test(lambda u: u.is_staff)
 def material_edit(request, material_id):
     material = get_object_or_404(Material, id=material_id)
@@ -224,12 +246,14 @@ def admin_dashboard(request):
     approved_count = Project.objects.filter(status='approved').count()
     declined_count = Project.objects.filter(status='declined').count()
     completed_count = Project.objects.filter(status='completed').count()
+    quotation_count = Quotation.objects.count()
 
     context = {
         'pending_count': pending_count,
         'approved_count': approved_count,
         'declined_count': declined_count,
         'completed_count': completed_count,
+        'quotation_count': quotation_count,
     }
     return render(request, 'quotes/admin_dashboard.html', context)
 
@@ -291,23 +315,16 @@ def update_project_status(request, project_id):
             messages.error(request, 'Invalid status')
     return redirect(request.META.get('HTTP_REFERER', 'admin_dashboard'))
 
+@staff_member_required
 def delete_user(request, user_id):
     user_to_delete = get_object_or_404(User, id=user_id)
-
-    # Prevent deletion of superusers and self-deletion
-    if user_to_delete.is_superuser or user_to_delete == request.user:
-        messages.error(request, "Cannot delete this user.")
-        return redirect('admin_dashboard')
-
     if request.method == 'POST':
-        # Delete the user's projects first
-        Project.objects.filter(user=user_to_delete).delete()
-        # Then delete the user
-        user_to_delete.delete()
-        messages.success(request, f"User {user_to_delete.username} and all their projects have been deleted.")
-        return redirect('admin_dashboard')
-
-    return render(request, 'quotes/confirm_user_delete.html', {'user_to_delete': user_to_delete})
+        if user_to_delete.is_superuser:
+            messages.error(request, "Cannot delete a superuser.")
+        else:
+            user_to_delete.delete()
+            messages.success(request, f"User {user_to_delete.username} has been deleted.")
+    return redirect('admin_user_management')
 
 
 def project_delete(request, project_id):
@@ -347,6 +364,8 @@ def is_admin(user):
 
 
 @login_required
+@login_required
+@login_required
 def project_detail(request, project_id):
     project = get_object_or_404(Project, id=project_id)
 
@@ -384,15 +403,28 @@ def project_detail(request, project_id):
         })
         total_project_cost += element_total
 
+    # Create or update quotation
+    quotation, created = Quotation.objects.get_or_create(
+        project=project,
+        customer=project.user,  # Add this line - use the project's user as the customer
+        defaults={
+            'total_amount': total_project_cost,
+            'area_size': project.area_size
+        }
+    )
+    if not created:
+        quotation.total_amount = total_project_cost
+        quotation.area_size = project.area_size
+        quotation.save()
+
     context = {
         'project': project,
         'elements_data': elements_data,
-        'total_project_cost': total_project_cost
+        'total_project_cost': total_project_cost,
+        'quotation': quotation
     }
 
     return render(request, 'quotes/project_detail.html', context)
-
-
 @login_required
 def manage_element_materials(request, element_id):
     project_element = get_object_or_404(ProjectElement, id=element_id)
@@ -427,68 +459,22 @@ def delete_element_material(request, element_material_id):
     return redirect('project_detail', project_id=project_id)
 
 @staff_member_required
-def admin_project_detail(request, project_id):
-    project = get_object_or_404(Project, id=project_id)
-    ProjectElementFormSet = formset_factory(ProjectElementForm, extra=1)
-    MaterialFormSet = formset_factory(MaterialForm, extra=1)
+def admin_project_detail(request, pk):
+    project = Project.objects.get(pk=pk)
+    project_elements = project.elements.all()
+    total_materials_cost = sum(material.get_total_cost for element in project_elements for material in element.materials.all())
+    total_markup = sum(material.get_markup for element in project_elements for material in element.materials.all())
+    total_project_cost = total_materials_cost + total_markup
+    materials = project.materials.all()
 
-    if request.method == 'POST':
-        form = ProjectForm(request.POST, instance=project)
-        element_formset = ProjectElementFormSet(request.POST, prefix='elements')
-        material_formset = MaterialFormSet(request.POST, prefix='materials')
-
-        if form.is_valid() and element_formset.is_valid() and material_formset.is_valid():
-            project = form.save()
-
-            # Save project elements
-            ProjectElement.objects.filter(project=project).delete()
-            for element_form in element_formset:
-                if element_form.cleaned_data:
-                    element = element_form.save(commit=False)
-                    element.project = project
-                    element.save()
-
-            # Save materials
-            project.materials.clear()
-            for material_form in material_formset:
-                if material_form.cleaned_data:
-                    material = material_form.save(commit=False)
-                    material.save()
-                    project.materials.add(material)
-
-            if request.is_ajax():
-                return JsonResponse({'status': 'success'})
-            return redirect('admin_project_list')
-        else:
-            if request.is_ajax():
-                errors = {}
-                if form.errors:
-                    errors.update(form.errors)
-                if element_formset.errors:
-                    errors['elements'] = element_formset.errors
-                if material_formset.errors:
-                    errors['materials'] = material_formset.errors
-                return JsonResponse({'status': 'error', 'errors': errors})
-
-    else:
-        form = ProjectForm(instance=project)
-        element_formset = ProjectElementFormSet(prefix='elements', initial=[
-            {'element_name': element.element_name, 'quantity': element.quantity}
-            for element in project.projectelement_set.all()
-        ])
-        material_formset = MaterialFormSet(prefix='materials', initial=[
-            {'name': material.name, 'quantity': material.quantity, 'unit_price': material.unit_price, 'markup_percentage': material.markup_percentage}
-            for material in project.materials.all()
-        ])
-
-    context = {
+    return render(request, 'quotes/admin_project_detail.html', {
         'project': project,
-        'form': form,
-        'element_formset': element_formset,
-        'material_formset': material_formset,
-    }
-    return render(request, 'quotes/admin_project_detail.html', context)
-
+        'project_elements': project_elements,
+        'total_materials_cost': total_materials_cost,
+        'total_markup': total_markup,
+        'total_project_cost': total_project_cost,
+        'materials': materials,
+    })
 
 @staff_member_required
 def update_global_markup(request, project_id):
@@ -543,3 +529,243 @@ def update_project_ajax(request, project_id):
             errors['materials'] = material_formset.errors
         return JsonResponse({'status': 'error', 'errors': errors})
 
+
+@staff_member_required
+def admin_project_detail(request, project_id):
+    project = get_object_or_404(Project, id=project_id)
+    if request.method == 'POST':
+        form = ProjectForm(request.POST, instance=project)
+        if form.is_valid():
+            project = form.save()
+
+            # Process elements and materials
+            elements_data = json.loads(request.POST.get('elements_data', '[]'))
+            ProjectElement.objects.filter(project=project).delete()
+            for element_data in elements_data:
+                element = ProjectElement.objects.create(
+                    project=project,
+                    element_name=element_data['name']
+                )
+                for material_data in element_data['materials']:
+                    ElementMaterial.objects.create(
+                        project_element=element,
+                        material_id=material_data['id'],
+                        quantity=material_data['quantity'],
+                        markup_percentage=material_data['markup']
+                    )
+
+            messages.success(request, 'Project updated successfully.')
+            return redirect('admin_project_list')
+    else:
+        form = ProjectForm(instance=project)
+
+    context = {
+        'form': form,
+        'project': project,
+        'elements': project.projectelement_set.prefetch_related('materials')
+    }
+    return render(request, 'quotes/admin_project_detail.html', context)
+
+def customer_approve_project(request, project_id):
+    project = get_object_or_404(Project, id=project_id, user=request.user)
+    if request.method == 'POST':
+        project.customer_approved = True
+        project.status = 'approved'
+        project.save()
+        messages.success(request, 'You have approved the project quotation.')
+        return redirect('project_detail', project_id=project.id)
+    return render(request, 'quotes/customer_approve_project.html', {'project': project})
+
+def customer_decline_project(request, project_id):
+    project = get_object_or_404(Project, id=project_id, user=request.user)
+    if request.method == 'POST':
+        project.status = 'declined'
+        project.save()
+        messages.info(request, 'You have declined the project quotation.')
+        return redirect('project_detail', project_id=project.id)
+    return render(request, 'quotes/customer_decline_project.html', {'project': project})
+
+
+def mark_project_completed(request, project_id):
+    project = get_object_or_404(Project, id=project_id)
+    if project.status != 'approved':
+        messages.error(request, 'Only approved projects can be marked as completed.')
+        return redirect('project_detail', project_id=project.id)
+
+    if request.method == 'POST':
+        completion_notes = request.POST.get('completion_notes', '')
+        project.status = 'completed'
+        project.completion_date = timezone.now()
+        project.completion_notes = completion_notes
+        project.save()
+
+        # You might want to create a ProjectCompletion model to store more details
+        # ProjectCompletion.objects.create(
+        #     project=project,
+        #     completed_by=request.user,
+        #     completion_notes=completion_notes
+        # )
+
+        # Send notification to the customer
+        send_project_completion_notification(project)
+
+        messages.success(request, 'Project has been successfully marked as completed.')
+        return redirect('project_detail', project_id=project.id)
+
+    context = {
+        'project': project,
+        'checklist_items': [
+            'All project elements have been completed according to specifications',
+            'Quality checks have been performed and approved',
+            'All materials and costs have been accounted for',
+            'Customer has reviewed and accepted the completed work'
+        ]
+    }
+    return render(request, 'quotes/mark_project_completed.html', context)
+
+def send_project_completion_notification(project):
+    subject = f'Project Completed: {project.title}'
+    message = f"""
+    Dear {project.user.username},
+
+    We are pleased to inform you that your project has been successfully completed.
+
+    Project Details:
+    - Project ID: #{project.id}
+    - Title: {project.title}
+    - Type: {project.get_project_type_display()}
+    - Location: {project.location}
+    - Completion Date: {project.completion_date.strftime('%Y-%m-%d %H:%M')}
+
+    Thank you for choosing our services. If you have any questions or need further assistance, please don't hesitate to contact us.
+
+    Best regards,
+    Your Project Team
+    """
+    from_email = 'delrosarioashleejale@gmail.com'  # Your Gmail address
+    recipient_list = [project.user.email]  # Assuming the project has a user field with an email
+
+    try:
+        send_mail(
+            subject,
+            message,
+            from_email,
+            recipient_list,
+            fail_silently=False,
+        )
+        print(f"Completion notification sent for project: {project.title}")
+    except Exception as e:
+        print(f"Failed to send completion notification for project: {project.title}. Error: {str(e)}")
+
+
+def admin_create_quotation(request):
+    pending_projects = Project.objects.filter(status='pending')
+
+    if request.method == 'POST':
+        project_id = request.POST.get('project')
+        project = get_object_or_404(Project, id=project_id)
+
+        total_amount = Decimal('0.00')
+        admin_notes = request.POST.get('admin_notes', '')
+
+        # Create the quotation
+        quotation = Quotation.objects.create(
+            project=project,
+            total_amount=total_amount,
+        )
+
+        # Process each material
+        for element in project.projectelement_set.all():
+            for material in element.materials.all():
+                quantity = Decimal(request.POST.get(f'quantity_{material.id}', 0))
+                price = Decimal(request.POST.get(f'price_{material.id}', 0))
+                markup = Decimal(request.POST.get(f'markup_{material.id}', 0))
+
+                subtotal = quantity * price * (1 + markup / 100)
+                total_amount += subtotal
+
+                # Update or create ElementMaterial
+                ElementMaterial.objects.update_or_create(
+                    project_element=element,
+                    material=material,
+                    defaults={
+                        'quantity': quantity,
+                        'markup_percentage': markup
+                    }
+                )
+
+        # Update the quotation with the final total amount
+        quotation.total_amount = total_amount
+        quotation.save()
+
+        # Update project status and admin notes
+        project.status = 'quoted'
+        project.admin_notes = admin_notes
+        project.save()
+
+        messages.success(request, 'Quotation created successfully!')
+        return redirect('admin_dashboard')
+
+    context = {
+        'pending_projects': pending_projects,
+    }
+    return render(request, 'quotes/admin_create_quotation.html', context)
+
+
+@staff_member_required
+def create_quotation(request):
+    QuotationMaterialFormSet = formset_factory(QuotationMaterialForm, extra=1)
+
+    if request.method == 'POST':
+        form = QuotationForm(request.POST, user=request.user)  # Pass the user here
+        material_formset = QuotationMaterialFormSet(request.POST)
+
+        if form.is_valid() and material_formset.is_valid():
+            quotation = form.save(commit=False)
+            quotation.save()
+
+            total_price = 0
+            for material_form in material_formset:
+                if material_form.cleaned_data:
+                    material = material_form.save(commit=False)
+                    material.quotation = quotation
+                    material.save()
+                    total_price += material.total_price
+
+            quotation.total_price = total_price
+            quotation.save()
+
+            messages.success(request, 'Quotation created successfully!')
+            return redirect('admin_dashboard')
+    else:
+        form = QuotationForm(user=request.user)  # Pass the user here too
+        material_formset = QuotationMaterialFormSet()
+
+    context = {
+        'form': form,
+        'material_formset': material_formset,
+    }
+    return render(request, 'quotes/admin_create_quotation.html',{'form': form})
+
+
+def provide_quote(request, project_id):
+    project = get_object_or_404(Project, id=project_id)
+
+    if request.method == 'POST':
+        total_cost = request.POST.get('total_cost')
+        admin_notes = request.POST.get('admin_notes')
+
+        # Update the project with quote details
+        project.total_cost = total_cost
+        project.admin_notes = admin_notes
+        project.status = 'quoted'  # Change status to quoted
+        project.admin_approved = True
+        project.save()
+
+        messages.success(request, 'Quote has been provided successfully.')
+        return redirect('admin_dashboard')
+
+    context = {
+        'project': project
+    }
+    return render(request, 'quotes/provide_quote.html', context)

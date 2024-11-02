@@ -8,7 +8,8 @@
             <span class="badge {% if project.status == 'pending' %}bg-warning
                              {% elif project.status == 'quoted' %}bg-info
                              {% elif project.status == 'approved' %}bg-success
-                             {% elif project.status == 'declined' %}bg-danger{% endif %}">
+                             {% elif project.status == 'declined' %}bg-danger
+                             {% elif project.status == 'completed' %}bg-secondary{% endif %}">
                 {{ project.get_status_display }}
             </span>
         </div>
@@ -38,34 +39,36 @@
                             <th>Status</th>
                             <td>{{ project.get_status_display }}</td>
                         </tr>
+                        <tr>
+                            <th>Last Updated</th>
+                            <td>{{ project.updated_at|date:"M d, Y H:i" }}</td>
+                        </tr>
                     </table>
                 </div>
                 
                 {% if project.admin_approved %}
-                <div class="col-md-6">
-                    <div class="card bg-light">
-                        <div class="card-body">
-                            <h5>Total Project Cost</h5>
-                            <h2 class="text-primary">₱{{ total_project_cost|floatformat:2 }}</h2>
-                            {% if project.status == 'quoted' and not project.customer_approved %}
-                                <form method="post" action="{% url 'customer_approve_project' project.id %}">
-                                    {% csrf_token %}
-                                    <button type="submit" class="btn btn-success mt-3">
-                                        <i class="fas fa-check"></i> Approve Quotation
-                                    </button>
-                                </form>
-                            {% endif %}
-                        </div>
-                    </div>
+<div class="card mb-4">
+                <div class="card-header bg-info text-white">
+                    <h5 class="mb-0">Quotation Details</h5>
                 </div>
-                {% else %}
-                <div class="col-md-6">
-                    <div class="alert alert-info">
-                        <i class="fas fa-info-circle"></i> Quotation pending admin review.
-                        The pricing details will be available once approved.
-                    </div>
+                <div class="card-body">
+                    <table class="table table-bordered">
+                        <tr>
+                            <th>Total Amount</th>
+                            <td>₱{{ quotation.total_amount|floatformat:2 }}</td>
+                        </tr>
+                        <tr>
+                            <th>Area Size</th>
+                            <td>{{ quotation.area_size|floatformat:2 }} sq.m</td>
+                        </tr>
+                        <tr>
+                            <th>Created</th>
+                            <td>{{ quotation.created_at|date:"M d, Y" }}</td>
+                        </tr>
+                    </table>
                 </div>
-                {% endif %}
+            </div>
+            {% endif %}
             </div>
 
             <!-- Materials Breakdown Section -->
@@ -99,7 +102,7 @@
                                     <td>₱{{ material.unit_price|floatformat:2 }}</td>
                                     <td>₱{{ material.base_cost|floatformat:2 }}</td>
                                     <td>{{ material.markup_percentage }}%</td>
-                                    <td>₱{{ material.total_with_markup|floatformat:2 }}</td>
+                                    <td >₱{{ material.total_with_markup|floatformat:2 }}</td>
                                 </tr>
                                 {% endfor %}
                             </tbody>
@@ -120,16 +123,18 @@
 
     <!-- Action Buttons -->
     <div class="mt-4 mb-4">
-        {% if user.is_staff or project.status == 'pending' %}
-        <a href="{% url 'edit_project' project.id %}" class="btn btn-primary">
-            <i class="fas fa-edit"></i> Edit Project
-        </a>
-        {% endif %}
-        
-        {% if user.is_staff and project.status == 'pending' %}
-        <a href="{% url 'admin_approve_project' project.id %}" class="btn btn-success">
-            <i class="fas fa-check"></i> Approve Project
-        </a>
+        {% if user.is_staff %}
+            {% if project.status == 'pending' %}
+                <a href="{% url 'admin_approve_project' project.id %}" class="btn btn-success">
+                    <i class="fas fa-check"></i> Approve Project
+                </a>
+            {% endif %}
+            
+            {% if project.status == 'approved' %}
+                <a href="{% url 'mark_project_completed' project.id %}" class="btn btn-success">
+                    <i class="fas fa-check"></i> Mark as Completed
+                </a>
+            {% endif %}
         {% endif %}
         
         <a href="{% url 'project_list' %}" class="btn btn-secondary">

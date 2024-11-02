@@ -1,0 +1,184 @@
+{% extends 'core/base.html' %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="card">
+        <div class="card-header">
+            <h2>{% if quotation %}Edit{% else %}Create{% endif %} Quotation</h2>
+        </div>
+        <div class="card-body">
+            <form method="post" id="quotationForm">
+                {% csrf_token %}
+                
+                <!-- Basic Quotation Information -->
+                <div class="row mb-4">
+                    <div class="col-md-6">
+                        {{ form.as_p }}
+                    </div>
+                </div>
+
+                <!-- Materials Section -->
+                <h4>Materials</h4>
+                <div class="form-group">
+                    <label for="global-markup">Global Markup %:</label>
+                    <input type="number" id="global-markup" class="form-control" style="width: 200px" step="0.01" min="0">
+                    <button type="button" class="btn btn-primary mt-2" id="apply-global-markup">Apply Global Markup</button>
+                </div>
+
+                {{ material_formset.management_form }}
+                <div id="materials-container">
+                    {% for material_form in material_formset %}
+                    <div class="material-row card mb-3">
+                        <div class="card-body">
+                            {{ material_form.as_p }}
+                            <button type="button" class="btn btn-danger remove-material">Remove Material</button>
+                            <div class="total-price mt-2">
+                                Total: <span class="material-total">₱0.00</span>
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+
+                <button type="button" class="btn btn-secondary" id="add-material">Add Material</button>
+
+                <!-- Total Section -->
+                <div class="card mt-4">
+                    <div class="card-body">
+                        <h4>Quotation Summary</h4>
+                        <table class="table">
+                            <tr>
+                                <th>Base Cost:</th>
+                                <td>₱<span id="base-cost">0.00</span></td>
+                            </tr>
+                            <tr>
+                                <th>Total Markup:</th>
+                                <td>₱<span id="markup-amount">0.00</span></td>
+                            </tr>
+                            <tr class="table-primary">
+                                <th>Total Amount:</th>
+                                <td>₱<span id="total-cost">0.00</span></td>
+                            </tr>
+                        </table>
+                    </div>
+                </div>
+
+                <div class="mt-4">
+                    <button type="submit" class="btn btn-primary">Save Quotation</button>
+                    <a href="{% url 'admin_dashboard' %}" class="btn btn-secondary">Cancel</a>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+$(document).ready(function() {
+    function updateMaterialPrices() {
+        let totalBaseCost = 0;
+        let totalMarkup = 0;
+
+        $('.material-row').each(function() {
+            const quantity = parseFloat($(this).find('.quantity').val()) || 0;
+            const unitPrice = parseFloat($(this).find('.unit-price').val()) || 0;
+            const markupPercentage = parseFloat($(this).find('.markup-percentage').val()) || 0;
+
+            const baseCost = quantity * unitPrice;
+            const markup = baseCost * (markupPercentage / 100);
+            const total = baseCost + markup;
+
+            $(this).find('.material-total').text('₱' + total.toFixed(2));
+            
+            totalBaseCost += baseCost;
+            totalMarkup += markup;
+        });
+
+        $('#base-cost').text(totalBaseCost.toFixed(2));
+        $('#markup-amount').text(totalMarkup.toFixed(2));
+        $('#total-cost').text((totalBaseCost + totalMarkup).toFixed(2));
+    }
+
+    // Add Material
+    $('#add-material').click(function() {
+        const template = $('.material-row').first().clone();
+        template.find('input').val('');
+        $('#materials-container').append(template);
+        updateFormIndexes();
+    });
+
+    // Remove Material
+    $(document).on('click', '.remove-material', function() {
+        if ($('.material-row').length > 1) {
+            $(this).closest('.material-row').remove();
+            updateFormIndexes();
+            updateMaterialPrices();
+        }
+    });
+
+    // Update prices when inputs change
+    $(document).on('input', '.quantity, .unit-price, .markup-percentage', function() {
+        updateMaterialPrices();
+    });
+// Apply Global Markup
+    $('#apply-global-markup').click(function() {
+        const globalMarkup = parseFloat($('#global-markup').val()) || 0;
+        $('.markup-percentage').val(globalMarkup);
+        updateMaterialPrices();
+    });
+
+    function updateFormIndexes() {
+        $('.material-row').each(function(index) {
+            $(this).find(':input').each(function() {
+                var name = $(this).attr('name').replace(/-\d+-/, '-' + index + '-');
+                var id = 'id_' + name;
+                $(this).attr({'name': name, 'id': id});
+            });
+        });
+    }
+
+    // Form submission
+    $('#quotationForm').submit(function(e) {
+        e.preventDefault();
+        
+        // Validate form data
+        let isValid = true;
+        $('.material-row').each(function() {
+            const material = $(this).find('.material-select').val();
+            const quantity = $(this).find('.quantity').val();
+            const unitPrice = $(this).find('.unit-price').val();
+            
+            if (!material || !quantity || !unitPrice) {
+                isValid = false;
+                return false;
+            }
+        });
+
+        if (!isValid) {
+            alert('Please fill in all required fields for materials.');
+            return;
+        }
+
+        // Submit form via AJAX
+        $.ajax({
+            url: "{% url 'create_quotation' %}",
+            type: 'POST',
+            data: $(this).serialize(),
+            success: function(response) {
+                if (response.status === 'success') {
+                    alert('Quotation saved successfully!');
+                    window.location.href = "{% url 'admin_dashboard' %}";
+                } else {
+                    alert('Error saving quotation: ' + response.message);
+                }
+            },
+            error: function() {
+                alert('An error occurred while saving the quotation.');
+            }
+        });
+    });
+
+    // Initialize
+    updateMaterialPrices();
+});
+</script>
+{% endblock %}
