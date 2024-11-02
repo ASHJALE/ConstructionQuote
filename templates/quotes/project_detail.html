@@ -14,40 +14,41 @@
             </span>
         </div>
         <div class="card-body">
-            <!-- Project Details Section -->
-            <div class="row mb-4">
-                <div class="col-md-6">
-                    <h4>Project Details</h4>
-                    <table class="table table-bordered">
-                        <tr>
-                            <th>Description</th>
-                            <td>{{ project.description }}</td>
-                        </tr>
-                        <tr>
-                            <th>Location</th>
-                            <td>{{ project.location }}</td>
-                        </tr>
-                        <tr>
-                            <th>Area Size</th>
-                            <td>{{ project.area_size }} sq.m</td>
-                        </tr>
-                        <tr>
-                            <th>Project Type</th>
-                            <td>{{ project.get_project_type_display }}</td>
-                        </tr>
-                        <tr>
-                            <th>Status</th>
-                            <td>{{ project.get_status_display }}</td>
-                        </tr>
-                        <tr>
-                            <th>Last Updated</th>
-                            <td>{{ project.updated_at|date:"M d, Y H:i" }}</td>
-                        </tr>
-                    </table>
+            <!-- Project Information Card -->
+            <div class="card mb-4">
+                <div class="card-body">
+                    <h5 class="card-title">Project Information</h5>
+                    <dl class="row">
+                        <dt class="col-sm-3">Title:</dt>
+                        <dd class="col-sm-9">{{ project.title }}</dd>
+
+                        <dt class="col-sm-3">Description:</dt>
+                        <dd class="col-sm-9">{{ project.description }}</dd>
+
+                        <dt class="col-sm-3">Location:</dt>
+                        <dd class="col-sm-9">{{ project.location }}</dd>
+
+                        <dt class="col-sm-3">Project Type:</dt>
+                        <dd class="col-sm-9">{{ project.get_project_type_display }}</dd>
+
+                        <dt class="col-sm-3">Area Size:</dt>
+                        <dd class="col-sm-9">{{ project.area_size }} sq.m</dd>
+
+                        <dt class="col-sm-3">Project Element:</dt>
+                        <dd class="col-sm-9">{{ project.get_project_element_display }}</dd>
+
+                        <dt class="col-sm-3">Status:</dt>
+                        <dd class="col-sm-9">{{ project.get_status_display }}</dd>
+
+                        <dt class="col-sm-3">Total Cost:</dt>
+                        <dd class="col-sm-9">₱{{ project.total_cost|floatformat:2 }}</dd>
+                    </dl>
                 </div>
-                
-                {% if project.admin_approved %}
-<div class="card mb-4">
+            </div>
+
+            <!-- Quotation Details Card -->
+            {% if project.admin_approved %}
+            <div class="card mb-4">
                 <div class="card-header bg-info text-white">
                     <h5 class="mb-0">Quotation Details</h5>
                 </div>
@@ -69,7 +70,6 @@
                 </div>
             </div>
             {% endif %}
-            </div>
 
             <!-- Materials Breakdown Section -->
             {% if project.admin_approved %}
@@ -102,7 +102,7 @@
                                     <td>₱{{ material.unit_price|floatformat:2 }}</td>
                                     <td>₱{{ material.base_cost|floatformat:2 }}</td>
                                     <td>{{ material.markup_percentage }}%</td>
-                                    <td >₱{{ material.total_with_markup|floatformat:2 }}</td>
+                                    <td>₱{{ material.total_with_markup|floatformat:2 }}</td>
                                 </tr>
                                 {% endfor %}
                             </tbody>
@@ -118,34 +118,46 @@
             </div>
             {% endfor %}
             {% endif %}
-        </div>
-    </div>
 
-    <!-- Action Buttons -->
-    <div class="mt-4 mb-4">
-        {% if user.is_staff %}
-            {% if project.status == 'pending' %}
-                <a href="{% url 'admin_approve_project' project.id %}" class="btn btn-success">
-                    <i class="fas fa-check"></i> Approve Project
+            <!-- Action Buttons -->
+            <div class="mt-4">
+                {% if user.is_staff %}
+                    {% if project.status == 'pending' %}
+                        <a href="{% url 'admin_approve_project' project.id %}" class="btn btn-success">
+                            <i class="fas fa-check"></i> Approve Project
+                        </a>
+                        <a href="{% url 'provide_quote' project.id %}" class="btn btn-primary">
+                            <i class="fas fa-calculator"></i> Provide Quote
+                        </a>
+                    {% endif %}
+                    
+                    {% if project.status == 'approved' %}
+                        <a href="{% url 'mark_project_completed' project.id %}" class="btn btn-success">
+                            <i class="fas fa-check"></i> Mark as Completed
+                        </a>
+                    {% endif %}
+                {% else %}
+                    {% if project.status == 'quoted' and not project.customer_approved %}
+                        <a href="{% url 'customer_approve_project' project.id %}" class="btn btn-success">
+                            <i class="fas fa-check"></i> Accept Quote
+                        </a>
+                        <a href="{% url 'customer_decline_project' project.id %}" class="btn btn-danger">
+                            <i class="fas fa-times"></i> Decline Quote
+                        </a>
+                    {% endif %}
+                {% endif %}
+
+                <a href="{% url 'project_list' %}" class="btn btn-secondary">
+                    <i class="fas fa-arrow-left"></i> Back to Projects
                 </a>
-            {% endif %}
-            
-            {% if project.status == 'approved' %}
-                <a href="{% url 'mark_project_completed' project.id %}" class="btn btn-success">
-                    <i class="fas fa-check"></i> Mark as Completed
-                </a>
-            {% endif %}
-        {% endif %}
-        
-        <a href="{% url 'project_list' %}" class="btn btn-secondary">
-            <i class="fas fa-arrow-left"></i> Back to Projects
-        </a>
-        
-        {% if project.admin_approved %}
-        <button onclick="window.print()" class="btn btn-info">
-            <i class="fas fa-print"></i> Print Details
-        </button>
-        {% endif %}
+
+                {% if project.admin_approved %}
+                    <button onclick="window.print()" class="btn btn-info">
+                        <i class="fas fa-print"></i> Print Details
+                    </button>
+                {% endif %}
+            </div>
+        </div>
     </div>
 </div>
 
@@ -172,7 +184,7 @@
         margin-bottom: 1.5rem;
     }
 
-    .table-responsive {
+    .table-responsive{
         overflow-x: auto;
     }
 
@@ -180,6 +192,157 @@
         font-size: 1rem;
         padding: 0.5rem 1rem;
         margin-left: 1rem;
+    }
+
+    /* Additional Styles */
+    .card-header {
+        border-bottom: none;
+    }
+
+    .card-title {
+        color: #2c3e50;
+        font-weight: 600;
+    }
+
+    dl.row {
+        margin-bottom: 0;
+    }
+
+    dt {
+        font-weight: 600;
+        color: #495057;
+    }
+
+    dd {
+        margin-bottom: .5rem;
+    }
+
+    .btn {
+        margin-right: 0.5rem;
+        margin-bottom: 0.5rem;
+        padding: 0.5rem 1rem;
+        border-radius: 0.25rem;
+        font-weight: 500;
+    }
+
+    .btn i {
+        margin-right: 0.5rem;
+    }
+
+    .table {
+        margin-bottom: 0;
+    }
+
+    .table th {
+        font-weight: 600;
+        border-top: none;
+    }
+
+    .table td {
+        vertical-align: middle;
+    }
+
+    .table-striped tbody tr:nth-of-type(odd) {
+        background-color: rgba(0,0,0,.02);
+    }
+
+    .table-info {
+        background-color: rgba(23, 162, 184, 0.1);
+    }
+
+    .badge {
+        font-weight: 500;
+        text-transform: capitalize;
+    }
+
+    .bg-warning {
+        background-color: #ffc107 !important;
+    }
+
+    .bg-success {
+        background-color: #28a745 !important;
+    }
+
+    .bg-danger {
+        background-color: #dc3545 !important;
+    }
+
+    .bg-info {
+        background-color: #17a2b8 !important;
+    }
+
+    .bg-secondary {
+        background-color: #6c757d !important;
+    }
+
+    /* Responsive Adjustments */
+    @media (max-width: 768px) {
+        .container {
+            padding: 1rem;
+        }
+
+        .card-body {
+            padding: 1rem;
+        }
+
+        .table-responsive {
+            margin: 0 -1rem;
+        }
+
+        .btn {
+            display: block;
+            width: 100%;
+            margin-bottom: 0.5rem;
+        }
+
+        .badge {
+            display: block;
+            margin: 0.5rem 0;
+            text-align: center;
+        }
+
+        dl.row {
+            margin: 0;
+        }
+
+        dt {
+            padding-top: 0.5rem;
+        }
+
+        dd {
+            padding-bottom: 0.5rem;
+            border-bottom: 1px solid #dee2e6;
+        }
+    }
+
+    /* Print Specific Styles */
+    @media print {
+        .container {
+            width: 100%;
+            max-width: none;
+            padding: 0;
+        }
+
+        .card {
+            box-shadow: none;
+        }
+
+        .table {
+            width: 100% !important;
+        }
+
+        .table td, .table th {
+            padding: 0.5rem;
+        }
+
+        .badge {
+            border: 1px solid #000;
+            color: #000 !important;
+        }
+
+        .text-white {
+            color: #000 !important;
+        }
     }
 </style>
 {% endblock %}

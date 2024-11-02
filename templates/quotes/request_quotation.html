@@ -1,0 +1,111 @@
+{% extends 'core/base.html' %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="card">
+        <div class="card-header">
+            <h2>Request for Quotation: {{ project.title }}</h2>
+        </div>
+        <div class="card-body">
+            <!-- Project Details -->
+            <div class="row mb-4">
+                <div class="col-md-6">
+                    <h4>Project Information</h4>
+                    <table class="table">
+                        <tr>
+                            <th>Location:</th>
+                            <td>{{ project.location }}</td>
+                        </tr>
+                        <tr>
+                            <th>Project Type:</th>
+                            <td>{{ project.get_project_type_display }}</td>
+                        </tr>
+                        <tr>
+                            <th>Area Size:</th>
+                            <td>{{ project.area_size }} sq.m</td>
+                        </tr>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Material Request Form -->
+            <form method="post">
+                {% csrf_token %}
+                <h4>Materials Needed</h4>
+                <div class="table-responsive">
+                    <table class="table table-bordered" id="materials-table">
+                        <thead>
+                            <tr>
+                                <th>Material</th>
+                                <th>Quantity</th>
+                                <th>Unit</th>
+                                <th>Price per Unit</th>
+                                <th>Action</th>
+                            </tr>
+                        </thead>
+                        <tbody id="materials-body">
+                            <tr class="material-row">
+                                <td>
+                                    <select name="material[]" class="form-control" required>
+                                        <option value="">Select Material</option>
+                                        {% for material in materials %}
+                                            <option value="{{ material.id }}">{{ material.name }}</option>
+                                        {% endfor %}
+                                    </select>
+                                </td>
+                                <td>
+                                    <input type="number" name="quantity[]" class="form-control" required min="1">
+                                </td>
+                                <td>
+                                    <input type="text" name="unit[]" class="form-control" required>
+                                </td>
+                                <td>
+                                    <input type="number" name="price[]" class="form-control" required min="0" step="0.01">
+                                </td>
+                                <td>
+                                    <button type="button" class="btn btn-danger btn-sm remove-row">
+                                        <i class="fas fa-trash"></i>
+                                    </button>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <button type="button" class="btn btn-secondary mb-3" id="add-material">
+                    <i class="fas fa-plus"></i> Add Another Material
+                </button>
+
+                <div class="form-group">
+                    <label for="notes">Additional Notes:</label>
+                    <textarea name="notes" id="notes" class="form-control" rows="3"></textarea>
+                </div>
+
+                <div class="mt-4">
+                    <button type="submit" class="btn btn-primary">Submit Request</button>
+                    <a href="{% url 'project_list' %}" class="btn btn-secondary">Cancel</a>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+$(document).ready(function() {
+    // Add new material row
+    $('#add-material').click(function() {
+        var newRow = $('.material-row').first().clone();
+        newRow.find('input').val('');
+        newRow.find('select').val('');
+        $('#materials-body').append(newRow);
+    });
+
+    // Remove material row
+    $(document).on('click', '.remove-row', function() {
+        if ($('.material-row').length > 1) {
+            $(this).closest('tr').remove();
+        }
+    });
+});
+</script>
+{% endblock %}

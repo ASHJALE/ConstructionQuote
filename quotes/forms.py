@@ -1,7 +1,7 @@
 from django import forms
 from django.contrib.auth.forms import UserCreationForm
 from django.contrib.auth.models import User
-from quotes.models import Project, Material, Quotation, QuotationMaterial
+from .models import Project, Material, Quotation, QuotationMaterial, ProjectElement
 
 class CustomUserCreationForm(UserCreationForm):
     email = forms.EmailField(
@@ -41,6 +41,41 @@ class CustomUserCreationForm(UserCreationForm):
         if User.objects.filter(email=email).exists():
             raise forms.ValidationError("This email is already registered.")
         return email
+
+class ProjectForm(forms.ModelForm):
+    class Meta:
+        model = Project
+        fields = ['title', 'description', 'location', 'project_type', 'area_size', 'status', 'project_element']
+        widgets = {
+            'title': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Enter project title'}),
+            'description': forms.Textarea(attrs={'class': 'form-control', 'rows': 4, 'placeholder': 'Enter project description'}),
+            'location': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Enter location'}),
+            'project_type': forms.Select(attrs={'class': 'form-control'}),
+            'area_size': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.01'}),
+            'status': forms.Select(attrs={'class': 'form-control'}),
+            'project_element': forms.Select(attrs={'class': 'form-control'}),
+        }
+
+class ProjectElementForm(forms.ModelForm):
+    class Meta:
+        model = ProjectElement
+        fields = ['element_name']
+        widgets = {
+            'element_name': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Enter element name'})
+        }
+
+class MaterialForm(forms.ModelForm):
+    class Meta:
+        model = Material
+        fields = ['name', 'description', 'unit_price', 'quantity', 'markup_percentage', 'unit']
+        widgets = {
+            'name': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Enter material name'}),
+            'description': forms.Textarea(attrs={'class': 'form-control', 'rows': 3, 'placeholder': 'Enter description'}),
+            'unit_price': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.01'}),
+            'quantity': forms.NumberInput(attrs={'class': 'form-control'}),
+            'markup_percentage': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.01'}),
+            'unit': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Enter unit (e.g., pcs, kg, m)'}),
+        }
 
 class QuotationForm(forms.ModelForm):
     quantities = forms.CharField(required=False, widget=forms.HiddenInput())
@@ -113,44 +148,6 @@ class QuotationForm(forms.ModelForm):
                 self.fields['project'].queryset = Project.objects.filter(user=user)
         else:
             self.fields['project'].queryset = Project.objects.none()
-
-    def clean(self):
-        cleaned_data = super().clean()
-        quantities = self.data.getlist('quantities[]', [])
-        unit_prices = self.data.getlist('unit_prices[]', [])
-        markups = self.data.getlist('markups[]', [])
-
-        if len(quantities) != len(unit_prices) or len(quantities) != len(markups):
-            raise forms.ValidationError("Invalid material data provided")
-
-        return cleaned_data
-
-class ProjectForm(forms.ModelForm):
-    class Meta:
-        model = Project
-        fields = ['title', 'description', 'location', 'project_type', 'area_size', 'status', 'project_element']
-        widgets = {
-            'title': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Enter project title'}),
-            'description': forms.Textarea(attrs={'class': 'form-control', 'rows': 4, 'placeholder': 'Enter project description'}),
-            'location': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Enter location'}),
-            'project_type': forms.Select(attrs={'class': 'form-control'}),
-            'area_size': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.01'}),
-            'status': forms.Select(attrs={'class': 'form-control'}),
-            'project_element': forms.Select(attrs={'class': 'form-control'}),
-        }
-
-class MaterialForm(forms.ModelForm):
-    class Meta:
-        model = Material
-        fields = ['name', 'description', 'unit_price', 'quantity', 'markup_percentage', 'unit']
-        widgets = {
-            'name': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Enter material name'}),
-            'description': forms.Textarea(attrs={'class': 'form-control', 'rows': 3, 'placeholder': 'Enter description'}),
-            'unit_price': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.01'}),
-            'quantity': forms.NumberInput(attrs={'class': 'form-control'}),
-            'markup_percentage': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.01'}),
-            'unit': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Enter unit (e.g., pcs, kg, m)'}),
-        }
 
 class QuotationMaterialForm(forms.ModelForm):
     class Meta:

@@ -60,6 +60,6 @@ urlpatterns = [
     path('admin/project/<pk>/', views.admin_project_detail, name='admin_project_detail'),
     path('admin/projects/<int:project_id>/', views.admin_project_detail, name='admin_project_detail'),
     path('admin/project/<int:project_id>/', views.admin_project_detail, name='admin_project_detail'),
-
+    path('get-material-details/', views.get_material_details, name='get_material_details'),
 
 ]

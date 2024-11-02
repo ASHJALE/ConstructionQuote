@@ -2,7 +2,7 @@
 
 {% block content %}
 <div class="container mt-4">
-    <h2>Edit Project</h2>
+    <h2>Edit Project: {{ project.title }}</h2>
     
     {% if messages %}
         {% for message in messages %}
@@ -12,7 +12,7 @@
         {% endfor %}
     {% endif %}
 
-    <form method="post">
+    <form method="post" id="edit-project-form">
         {% csrf_token %}
         <div class="form-group">
             <label for="title">Title</label>
@@ -56,8 +56,275 @@
             </select>
         </div>
 
-        <button type="submit" class="btn btn-primary">Save Changes</button>
-        <a href="{% url 'project_list' %}" class="btn btn-secondary">Cancel</a>
+        <h3 class="mt-4">Materials</h3>
+        <div id="materials-container">
+            {% for material in materials_data %}
+            <div class="material-row mb-3">
+                <input type="hidden" name="material_id[]" value="{{ material.id }}">
+                <div class="row">
+                    <div class="col-md-2">
+                        <label>Material</label>
+                        <select name="material_id[]" class="form-control material-select" required>
+                            {% for avail_material in available_materials %}
+                                <option value="{{ avail_material.id }}" {% if avail_material.id == material.id %}selected{% endif %}>
+                                    {{ avail_material.name }}
+                                </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-md-2">
+                        <label>Quantity ({{ material.unit }})</label>
+                        <input type="number" name="quantity[]" class="form-control quantity-input" 
+                               value="{{ material.quantity }}" min="1" required>
+                    </div>
+                    <div class="col-md-2">
+                        <label>Unit Price</label>
+                        <input type="number" name="unit_price[]" class="form-control unit-price-input" 
+                               value="{{ material.unit_price }}" min="0.01" step="0.01" required>
+                    </div>
+                    <div class="col-md-2">
+                        <label>Base Cost</label>
+                        <input type="text" class="form-control base-cost" 
+                               value="₱{{ material.base_cost|floatformat:2 }}" readonly>
+                    </div>
+                    <div class="col-md-2">
+                        <label>Markup %</label>
+                        <input type="number" name="markup_percentage[]" class="form-control markup-input" 
+                               value="{{ material.markup_percentage }}" min="0" step="0.01" required>
+                    </div>
+                    <div class="col-md-2">
+                        <label>Total with Markup</label>
+                        <input type="text" class="form-control total-with-markup" 
+                               value="₱{{ material.total_with_markup|floatformat:2 }}" readonly>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+
+        <button type="button" id="add-material" class="btn btn-secondary mb-3">Add Material</button>
+
+        <div class="card mt-4">
+            <div class="card-body">
+                <h5 class="card-title">Project Summary</h5>
+                <table class="table">
+                    <tr>
+                        <th>Total Project Cost:</th>
+                        <td class="h4 text-primary">₱<span id="total-project-cost">{{ total_project_cost|floatformat:2 }}</span></td>
+                    </tr>
+                </table>
+            </div>
+        </div>
+
+        <button type="submit" class="btn btn-primary mt-3">Save Changes</button>
+        <a href="{% url 'project_list' %}" class="btn btn-secondary mt-3">Cancel</a>
     </form>
 </div>
+
+<script>
+$(document).ready(function() {
+    function updateMaterialCosts(row) {
+        const quantity = parseFloat(row.find('.quantity-input').val()) || 0;
+        const unitPrice = parseFloat(row.find('.unit-price-input').val()) || 0;
+        const markup = parseFloat(row.find('.markup-input').val()) || 0;
+        
+        const baseCost = quantity * unitPrice;
+        const markupAmount = baseCost * (markup / 100);
+        const totalWithMarkup = baseCost + markupAmount;
+        
+        row.find('.base-cost').val('₱' + baseCost.toFixed(2));
+        row.find('.total-with-markup').val('₱' + totalWithMarkup.toFixed(2));
+    }
+    
+    function updateProjectTotal() {
+        let totalProjectCost = 0;
+        $('.material-row').each(function() {
+            const totalWithMarkup = parseFloat($(this).find('.total-with-markup').val().replace('₱', '')) || 0;
+            totalProjectCost += totalWithMarkup;
+        });
+        
+        $('#total-project-cost').text(totalProjectCost.toFixed(2));
+    }
+    
+    $(document).on('change', '.quantity-input, .unit-price-input, .markup-input', function() {
+        const row = $(this).closest('.material-row');
+        updateMaterialCosts(row);
+        updateProjectTotal();
+    });
+
+    $('#add-material').click(function() {
+        const newRow = $('.material-row:first').clone();
+        newRow.find('input').val('');
+        newRow.find('select').prop('selectedIndex', 0);
+        $('#materials-container').append(newRow);
+    });
+
+    $('#edit-project-form').submit(function(e) {
+        e.preventDefault();
+        $.ajax({
+            url: $(this).attr('action'),
+            type: 'POST',
+            data: $(this).serialize(),
+            success: function(response) {
+                if (response.status === 'success') {
+                    window.location.href = "{% url 'project_list' %}";
+                } else {
+                    alert('Error: ' + response.message);
+                }
+            },
+            error: function() {
+                alert('An error occurred while saving the project.');
+            }
+        });
+    });
+
+    // Material selection change handler
+    $(document).on('change', '.material-select', function() {
+        const row = $(this).closest('.material-row');
+        const materialId = $(this).val();
+        
+        // Fetch material details via AJAX
+        $.ajax({
+            url: "{% url 'get_material_details' %}",
+            data: { 'material_id': materialId },
+            success: function(response) {
+                if (response.status === 'success') {
+                    row.find('.unit-price-input').val(response.unit_price);
+                    row.find('.quantity-input').attr('placeholder', `Quantity (${response.unit})`);
+                    updateMaterialCosts(row);
+                    updateProjectTotal();
+                }
+            }
+        });
+    });
+
+    // Remove material button
+    $(document).on('click', '.remove-material', function() {
+        if ($('.material-row').length > 1) {
+            $(this).closest('.material-row').remove();
+            updateProjectTotal();
+        } else {
+            alert('At least one material is required.');
+        }
+    });
+
+    // Global markup application
+    $('#apply-global-markup').click(function() {
+        const globalMarkup = parseFloat($('#global-markup').val()) || 0;
+        $('.markup-input').val(globalMarkup).trigger('change');
+    });
+
+    // Form validation
+    function validateForm() {
+        let isValid = true;
+        
+        // Check required fields
+        $('#edit-project-form input[required], #edit-project-form select[required]').each(function() {
+            if (!$(this).val()) {
+                isValid = false;
+                $(this).addClass('is-invalid');
+            } else {
+                $(this).removeClass('is-invalid');
+            }
+        });
+
+        // Validate materials
+        $('.material-row').each(function() {
+            const quantity = parseFloat($(this).find('.quantity-input').val());
+            const unitPrice = parseFloat($(this).find('.unit-price-input').val());
+            const markup = parseFloat($(this).find('.markup-input').val());
+
+            if (isNaN(quantity) || quantity <= 0 || 
+                isNaN(unitPrice) || unitPrice <= 0 || 
+                isNaN(markup) || markup < 0) {
+                isValid = false;
+                $(this).find('input').addClass('is-invalid');
+            }
+        });
+
+        return isValid;
+    }
+
+    // Initialize tooltips
+    $('[data-toggle="tooltip"]').tooltip();
+
+    // Initialize all material calculations
+    $('.material-row').each(function() {
+        updateMaterialCosts($(this));
+    });
+    updateProjectTotal();
+});
+</script>
+
+<!-- Add these styles to your template -->
+<style>
+.material-row {
+    background-color: #f8f9fa;
+    padding: 15px;
+    border-radius: 5px;
+    margin-bottom: 15px;
+    border: 1px solid #dee2e6;
+}
+
+.material-row:hover {
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.form-control.is-invalid {
+    border-color: #dc3545;
+    padding-right: calc(1.5em + .75rem);
+    background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' fill='none' stroke='%23dc3545' viewBox='0 0 12 12'%3e%3ccircle cx='6' cy='6' r='4.5'/%3e%3cpath stroke-linejoin='round' d='M5.8 3.6h.4L6 6.5z'/%3e%3ccircle cx='6' cy='8.2' r='.6' fill='%23dc3545' stroke='none'/%3e%3c/svg%3e");
+    background-repeat: no-repeat;
+    background-position: right calc(.375em + .1875rem) center;
+    background-size: calc(.75em + .375rem) calc(.75em + .375rem);
+}
+
+.btn-remove {
+    padding: 0.25rem 0.5rem;
+    font-size: 0.875rem;
+    line-height: 1.5;
+    border-radius: 0.2rem;
+}
+
+.total-section {
+    background-color: #e9ecef;
+    padding: 10px;
+    border-radius: 5px;
+    margin-top: 10px;
+}
+
+.material-controls {
+    display: flex;
+    align-items: flex-end;
+    gap: 10px;
+}
+
+#global-markup {
+    max-width: 150px;
+}
+
+.readonly-field {
+    background-color: #e9ecef;
+    cursor: not-allowed;
+}
+
+.card {
+    box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+}
+
+.card-title {
+    color: #495057;
+    font-weight: 600;
+}
+
+.text-primary {
+    color: #007bff !important;
+}
+
+.form-group label {
+    font-weight: 500;
+    color: #495057;
+}
+</style>
+
 {% endblock %}

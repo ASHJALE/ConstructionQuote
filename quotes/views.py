@@ -1,4 +1,6 @@
 import json
+from django.utils import timezone
+from decimal import Decimal
 
 from django.contrib.auth import authenticate, login
 from django.contrib.auth.forms import AuthenticationForm
@@ -7,15 +9,22 @@ from django.forms import formset_factory
 from django.http import JsonResponse
 from django.views.decorators.http import require_http_methods
 from .admin import ElementMaterialForm
-from .models import Project, Material, Pricing, ProjectElement, ElementMaterial, Quotation
-from .forms import CustomUserCreationForm, ProjectForm, QuotationForm, QuotationMaterialForm
+from .models import Project, Material, Pricing, ProjectElement, ElementMaterial, Quotation, ProjectMaterial
+
 from django.contrib.auth import logout
 from django.contrib.auth.decorators import login_required, user_passes_test
 from django.contrib.admin.views.decorators import staff_member_required
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib import messages
 from .models import Project, User
-
+from .forms import (
+    CustomUserCreationForm,
+    ProjectForm,
+    QuotationForm,
+    QuotationMaterialForm,
+    MaterialForm,
+    ProjectElementForm
+)
 def home(request):
     return render(request, 'quotes/home.html')
 
@@ -75,7 +84,12 @@ def login_view(request):
             if user is not None:
                 login(request, user)
                 messages.success(request, f'Welcome back, {username}!')
-                return redirect('project_list')
+
+                # Check if user is superuser/staff and redirect accordingly
+                if user.is_superuser or user.is_staff:
+                    return redirect('admin_dashboard')
+                else:
+                    return redirect('project_list')
             else:
                 messages.error(request, 'Invalid username or password.')
         else:
@@ -164,51 +178,166 @@ def project_create(request):
 
 
 @login_required
-@login_required
 def edit_project(request, project_id):
     project = get_object_or_404(Project, id=project_id, user=request.user)
+    project_materials = ProjectMaterial.objects.filter(project=project).select_related('material')
 
     if request.method == 'POST':
-        print("POST data:", request.POST)  # Debug print
-
-        # Get form data
-        title = request.POST.get('title')
-        description = request.POST.get('description')
-        location = request.POST.get('location')
-        project_type = request.POST.get('project_type')
-        area_size = request.POST.get('area_size')
-        project_element = request.POST.get('project_element')
-
         try:
-            print("Updating project with:", {  # Debug print
-                'title': title,
-                'description': description,
-                'location': location,
-                'project_type': project_type,
-                'area_size': area_size,
-                'project_element': project_element
-            })
+            # Get form data
+            title = request.POST.get('title')
+            description = request.POST.get('description')
+            location = request.POST.get('location')
+            project_type = request.POST.get('project_type')
+            area_size = request.POST.get('area_size')
+            project_element = request.POST.get('project_element')
 
+            # Get materials data
+            material_ids = request.POST.getlist('material_id[]')
+            quantities = request.POST.getlist('quantity[]')
+            unit_prices = request.POST.getlist('unit_price[]')
+            markup_percentages = request.POST.getlist('markup_percentage[]')
+
+            # Validate data lengths match
+            if not (len(material_ids) == len(quantities) == len(unit_prices) == len(markup_percentages)):
+                raise ValueError("Mismatched material data arrays")
+
+            # Update project details
             project.title = title
             project.description = description
             project.location = location
             project.project_type = project_type
-            project.area_size = area_size
+            project.area_size = Decimal(area_size)
             project.project_element = project_element
+
+            # Calculate total project cost
+            total_cost = Decimal('0.00')
+
+            # Update project materials
+            project.projectmaterial_set.all().delete()
+            for i, material_id in enumerate(material_ids):
+                if material_id:
+                    try:
+                        material = Material.objects.get(id=material_id)
+                        quantity = Decimal(quantities[i])
+                        unit_price = Decimal(unit_prices[i])
+                        markup = Decimal(markup_percentages[i])
+
+                        if quantity <= 0 or unit_price <= 0:
+                            raise ValueError("Quantity and unit price must be positive")
+
+                        # Calculate material total
+                        material_cost = quantity * unit_price
+                        markup_amount = material_cost * (markup / 100)
+                        total_material_cost = material_cost + markup_amount
+
+                        total_cost += total_material_cost
+
+                        ProjectMaterial.objects.create(
+                            project=project,
+                            material=material,
+                            quantity=quantity,
+                            unit_price=unit_price,
+                            markup_percentage=markup
+                        )
+                    except Material.DoesNotExist:
+                        messages.error(request, f'Material with ID {material_id} not found')
+                        continue
+
+            # Update project total cost
+            project.total_cost = total_cost
             project.save()
 
             messages.success(request, 'Project updated successfully!')
             return redirect('project_list')
+
         except Exception as e:
-            print("Error:", str(e))  # Debug print
             messages.error(request, f'Error updating project: {str(e)}')
+            print(f"Error in edit_project: {str(e)}")  # Debug print
+
+    # Prepare context data
+    materials_data = [{
+        'id': pm.material.id,
+        'name': pm.material.name,
+        'quantity': pm.quantity,
+        'unit': pm.material.unit,
+        'unit_price': pm.unit_price,
+        'base_cost': pm.quantity * pm.unit_price,
+        'markup_percentage': pm.markup_percentage,
+        'markup_amount': (pm.quantity * pm.unit_price) * (pm.markup_percentage / 100),
+        'total_with_markup': (pm.quantity * pm.unit_price) * (1 + pm.markup_percentage / 100)
+    } for pm in project_materials]
+
+    total_project_cost = sum(m['total_with_markup'] for m in materials_data)
 
     context = {
         'project': project,
         'project_types': Project.PROJECT_TYPES,
         'project_elements': Project.PROJECT_ELEMENTS,
+        'materials_data': materials_data,
+        'available_materials': Material.objects.all(),
+        'total_project_cost': total_project_cost,
     }
     return render(request, 'quotes/project_edit.html', context)
+
+def calculate_material_totals(quantity, unit_price, markup_percentage):
+    """Helper function to calculate material costs"""
+    base_cost = Decimal(quantity) * Decimal(unit_price)
+    markup_amount = base_cost * (Decimal(markup_percentage) / 100)
+    total_with_markup = base_cost + markup_amount
+    return {
+        'base_cost': base_cost,
+        'markup_amount': markup_amount,
+        'total_with_markup': total_with_markup
+    }
+
+def get_material_details(request):
+    material_id = request.GET.get('material_id')
+    try:
+        material = Material.objects.get(id=material_id)
+        return JsonResponse({
+            'status': 'success',
+            'unit_price': float(material.unit_price),
+            'unit': material.unit,
+        })
+    except Material.DoesNotExist:
+        return JsonResponse({
+            'status': 'error',
+            'message': 'Material not found'
+        })
+def request_quotation(request, project_id):
+    project = get_object_or_404(Project, id=project_id, user=request.user)
+    materials = Material.objects.all()
+
+    if request.method == 'POST':
+        material_ids = request.POST.getlist('material[]')
+        quantities = request.POST.getlist('quantity[]')
+        units = request.POST.getlist('unit[]')
+        prices = request.POST.getlist('price[]')
+        notes = request.POST.get('notes')
+
+        # Save the material requests
+        for i in range(len(material_ids)):
+            ProjectMaterial.objects.create(
+                project=project,
+                material_id=material_ids[i],
+                quantity=quantities[i],
+                unit=units[i],
+                price_per_unit=prices[i]
+            )
+
+        project.status = 'pending'
+        project.save()
+
+        messages.success(request, 'Your quotation request has been submitted.')
+        return redirect('project_list')
+
+    context = {
+        'project': project,
+        'materials': materials,
+    }
+    return render(request, 'quotes/request_quotation.html', context)
+
 @user_passes_test(lambda u: u.is_staff)
 def material_edit(request, material_id):
     material = get_object_or_404(Material, id=material_id)
@@ -363,8 +492,6 @@ def is_admin(user):
     return user.is_superuser
 
 
-@login_required
-@login_required
 @login_required
 def project_detail(request, project_id):
     project = get_object_or_404(Project, id=project_id)
